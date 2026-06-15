@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sound Lab · Modular Synth</title>
+  <style>
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body { margin: 0; height: 100%; background: #04090f; color: #8fb; font-family: 'Courier New', Courier, monospace; overscroll-behavior: none; touch-action: none; }
+    body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; position: fixed; inset: 0; }   /* pin to viewport so a drag on any panel can't pan the whole page off-screen */
+    #err { position: fixed; left: 8px; right: 8px; top: 46px; z-index: 99; background: rgba(40,0,0,0.92); border: 1px solid #f55; color: #ff9; font-size: 11px; line-height: 1.4; padding: 8px 10px; border-radius: 5px; white-space: pre-wrap; display: none; max-height: 50vh; overflow: auto; }
+
+    header { flex: 0 0 auto; padding: 7px 14px; border-bottom: 1px solid #0e2030; display: flex; align-items: center; gap: 12px; background: rgba(4,9,15,0.97); }
+    h1 { margin: 0; font-size: 14px; letter-spacing: 0.22em; color: #00eeff; font-weight: normal; }
+    .sub { font-size: 9px; color: #4a6a7a; letter-spacing: 0.1em; }
+    .actions { margin-left: auto; display: flex; gap: 8px; }
+    .actions button { background: rgba(0,238,255,0.1); border: 1px solid #00eeff; color: #cfffff; font-family: inherit; font-size: 10px; letter-spacing: 0.12em; padding: 5px 12px; cursor: pointer; border-radius: 4px; }
+    .actions button.ghost { background: transparent; border-color: #1a3040; color: #8aa6b6; }
+    .actions button.ghost:hover { border-color: #00eeff; color: #00eeff; }
+    .savestat { align-self: center; color: #2fe88a; font-size: 9px; letter-spacing: 0.12em; min-width: 46px; text-align: right; opacity: 0; transition: opacity 0.2s; }
+    .savestat.show { opacity: 1; }
+
+    .workspace { flex: 1 1 auto; display: flex; min-height: 0; }
+    .rail { position: relative; flex: 0 0 170px; border-right: 1px solid #0e2030; overflow-y: auto; background: rgba(0,238,255,0.015); transition: flex-basis 0.16s ease; touch-action: pan-y; }
+    /* collapsed = ZERO layout width; the header becomes a small floating tab over the stage corner so the graph gets the full screen */
+    .rail.collapsed { flex-basis: 0; overflow: visible; border-right: none; }
+    .rail.collapsed .prow, .rail.collapsed .newbtn, .rail.collapsed .ghint, .rail.collapsed .ghdr { display: none; }
+    .rail .rhead { padding: 9px 10px; font-size: 10px; letter-spacing: 0.16em; color: #00eeff; background: rgba(0,238,255,0.05); border-bottom: 1px solid #0e2030; position: sticky; top: 0; cursor: pointer; user-select: none; display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+    .rail .rhead .car { transition: transform 0.16s; }
+    .rail.collapsed .rhead { position: absolute; top: 6px; left: 0; height: auto; padding: 6px 8px; border: 1px solid #134; border-left: none; border-radius: 0 6px 6px 0; background: rgba(4,12,20,0.92); box-shadow: 0 2px 10px rgba(0,0,0,0.55); z-index: 25; }
+    .rail.collapsed .rhead .car { transform: rotate(-90deg); }
+    .rail .preset { display: block; width: 100%; text-align: left; background: transparent; border: none; border-top: 1px solid #08131c; color: #9fd; font-family: inherit; font-size: 10px; letter-spacing: 0.02em; line-height: 1.3; padding: 8px 11px; cursor: pointer; }
+    .rail .preset:hover { background: rgba(0,238,255,0.07); }
+    .rail .preset.active { background: rgba(0,238,255,0.14); color: #cfffff; }
+    .rail .ghdr { padding: 6px 11px 4px; font-size: 9px; letter-spacing: 0.18em; color: #2a6a7a; background: rgba(0,238,255,0.03); border-top: 1px solid #0e2030; }
+    .rail .ghint { padding: 10px; font-size: 9px; color: #3a5a6a; line-height: 1.5; border-top: 1px solid #08131c; }
+    .rail .newbtn { display: block; width: 100%; text-align: left; background: rgba(0,238,255,0.06); border: none; border-top: 1px solid #08131c; color: #00eeff; font-family: inherit; font-size: 10px; letter-spacing: 0.08em; padding: 8px 11px; cursor: pointer; }
+    .rail .newbtn:hover { background: rgba(0,238,255,0.12); }
+    .rail .prow { display: flex; align-items: stretch; border-top: 1px solid #08131c; }
+    .rail .prow .preset { flex: 1 1 auto; border-top: none; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .rail .prow .pact { flex: 0 0 auto; width: 26px; background: transparent; border: none; color: #3a6a7a; font-family: inherit; font-size: 13px; cursor: pointer; }
+    .rail .prow .pact:hover { color: #ffd24a; background: rgba(255,180,0,0.08); }
+    .rail .ed { color: #ffd24a; }
+
+    .stage { flex: 1 1 auto; position: relative; min-width: 0; }
+    #stage3d { position: absolute; inset: 0; }
+
+    #exportbox { position: absolute; right: 12px; top: 46px; width: 360px; max-width: calc(100vw - 24px); height: 220px; display: none; background: #02060a; color: #7fc; border: 1px solid #16505f; font-family: inherit; font-size: 10px; padding: 8px; z-index: 30; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>SOUND LAB</h1>
+    <span class="sub">MODULAR SYNTH</span>
+    <span class="actions">
+      <span id="savestat" class="savestat"></span>
+      <button id="play">▶ FIRE</button>
+      <button id="stop" class="ghost">■ STOP</button>
+      <button id="export" class="ghost">EXPORT</button>
+    </span>
+  </header>
+
+  <div id="err"></div>
+
+  <div class="workspace">
+    <aside class="rail" id="rail"><div class="rhead" id="rhead"><span>PATCHES</span><span class="car">▾</span></div></aside>
+    <main class="stage"><div id="stage3d"></div></main>
+  </div>
+
+  <textarea id="exportbox" readonly></textarea>
+
+  <script>
+    // ── on-screen crash readout (mobile has no dev console) ──
+    const errBox = document.getElementById('err');
+    function showErr(label, e) {
+      errBox.style.display = 'block';
+      errBox.textContent += `\n[${label}] ${e && e.message ? e.message : e}\n${e && e.stack ? e.stack.split('\n').slice(0, 4).join('\n') : ''}\n`;
+    }
+    window.addEventListener('error', ev => showErr('error', ev.error || ev.message));
+    window.addEventListener('unhandledrejection', ev => showErr('promise', ev.reason));
+  </script>
+  <script type="module">
+    import { playPatch, makeNoiseBuffer, makeImpulse, PATCH_PRESETS } from './patch.js?v=20260613x';
+    import { createEditor3D } from './editor3d.js?v=20260613x';
+    try {
+
+    let ctx = null, noise = null, master = null, sfx = null, reverbInput = null;
+    let analyser = null, waveBuf = null;
+    function ensureCtx() {
+      if (ctx) return;
+      const AC = window.AudioContext || window.webkitAudioContext;
+      ctx = new AC();
+      noise = makeNoiseBuffer(ctx, 2);
+      master = ctx.createGain(); master.gain.value = 1;   // volume lives on the OUT node's gain
+      const limiter = ctx.createDynamicsCompressor(); limiter.threshold.value = -6; limiter.ratio.value = 12;
+      master.connect(limiter).connect(ctx.destination);
+      sfx = ctx.createGain(); sfx.gain.value = 1; sfx.connect(master);
+      analyser = ctx.createAnalyser(); analyser.fftSize = 1024; analyser.smoothingTimeConstant = 0.6;
+      waveBuf = new Uint8Array(analyser.fftSize); sfx.connect(analyser);
+      const reverb = ctx.createConvolver(); reverb.buffer = makeImpulse(ctx, 2.4, 2.2);
+      const revReturn = ctx.createGain(); revReturn.gain.value = 1;
+      reverb.connect(revReturn).connect(master);
+      reverbInput = ctx.createGain(); reverbInput.connect(reverb);
+    }
+
+    function getWave() { if (!analyser) return null; analyser.getByteTimeDomainData(waveBuf); return waveBuf; }
+    function getLevel() {
+      if (!analyser) return 0;
+      analyser.getByteTimeDomainData(waveBuf);
+      let sum = 0; for (let i = 0; i < waveBuf.length; i++) { const v = (waveBuf[i] - 128) / 128; sum += v * v; }
+      return Math.min(1, Math.sqrt(sum / waveBuf.length) * 3.2);
+    }
+
+    let voice = null, activeKey = null, baseline = null;   // baseline = snapshot of the active patch as loaded, to detect edits
+    function fire() {
+      ensureCtx();
+      if (ctx.state === 'suspended') ctx.resume();
+      if (voice) { voice.stop(); voice = null; }
+      const p = editor.getPatch();
+      if (p && p.nodes.length) { voice = playPatch(ctx, noise, sfx, reverbInput, p, () => { voice = null; editor.onStop(); }); editor.onFire(); }
+      persist();
+    }
+    function stopVoice() { if (voice) { voice.stop(); voice = null; } editor.onStop(); }
+
+    const editor = createEditor3D(document.getElementById('stage3d'), {
+      onChange: fire, getLevel, getWave,
+      onLiveValue: (id, v) => { if (voice && voice.setValue) voice.setValue(id, v); },   // rev the playing voice without a rebuild
+      onPersist: persist,                                                                // save the edit (no restart)
+    });
+
+    // ── patch rail (collapsible — tap PATCHES to toggle; starts collapsed on phones) ──
+    const rail = document.getElementById('rail');
+    const rhead = document.getElementById('rhead');
+    rhead.addEventListener('click', () => rail.classList.toggle('collapsed'));
+    if (window.innerWidth < 640) rail.classList.add('collapsed');
+    // tapping into the node-graph collapses the rail so it's out of the way (capture: fire before the editor eats it)
+    document.getElementById('stage3d').addEventListener('pointerdown', () => rail.classList.add('collapsed'), true);
+
+    // ── local patch store (localStorage; no server) ──────────────────────────
+    //  sl.patches.v1 : { key → patch }  — local copies. A key matching a preset
+    //                  key OVERRIDES that preset; a 'user:…' key is a fresh patch.
+    //  sl.wip.v1     : { activeKey, patch } — the live working graph, auto-saved
+    //                  every edit so a reload never loses unsaved work.
+    const STORE_KEY = 'sl.patches.v1', WIP_KEY = 'sl.wip.v1';
+    const clone = o => JSON.parse(JSON.stringify(o));
+    let userPatches = (() => { try { return JSON.parse(localStorage.getItem(STORE_KEY)) || {}; } catch { return {}; } })();
+    const persistStore = () => { try { localStorage.setItem(STORE_KEY, JSON.stringify(userPatches)); } catch (e) { showErr('store', e); } };
+    // auto-save: every change persists to the active patch (diffed against its as-loaded baseline so
+    // untouched patches never get spuriously marked). No SAVE button — edits just stick.
+    let wipTimer = null;
+    function persist() {
+      clearTimeout(wipTimer);
+      wipTimer = setTimeout(() => {
+        const cur = JSON.stringify(editor.getPatch());
+        if (activeKey && baseline !== null && cur !== baseline) {
+          const firstEdit = !userPatches[activeKey];     // preset edited for the first time → show * / ↺
+          userPatches[activeKey] = JSON.parse(cur); baseline = cur;
+          try { localStorage.setItem(STORE_KEY, JSON.stringify(userPatches)); } catch (e) { showErr('store', e); }
+          if (firstEdit) renderRail();
+          flashStat('saved ✓');
+        }
+        try { localStorage.setItem(WIP_KEY, JSON.stringify({ activeKey, patch: JSON.parse(cur) })); } catch {}
+      }, 300);
+    }
+
+    // merged list: every preset (overridden by a local copy if present) + user patches
+    function entries() {
+      const out = [];
+      for (const [key, preset] of Object.entries(PATCH_PRESETS)) {
+        const ov = userPatches[key];   // display uses the BUILT-IN's name/group (canonical); an override only supplies patch data
+        out.push({ key, kind: 'preset', edited: !!ov, patch: ov || preset, label: preset.name || key, group: preset.group || 'PATCHES' });
+      }
+      for (const [key, p] of Object.entries(userPatches)) {
+        if (PATCH_PRESETS[key]) continue;   // overrides already shown above
+        out.push({ key, kind: 'user', edited: false, patch: p, label: p.name || key.replace(/^user:/, ''), group: 'MINE' });
+      }
+      return out;
+    }
+    const GROUP_ORDER = ['ENGINES', 'GUNS', 'SYNTH', 'PATCHES', 'MINE'];   // rail section order
+    const VEHICLE_ORDER = ['Lurcher', 'Firebrat', 'Valkyrie', 'Jotun'];    // match the Vehicle Designer tab order
+    const statEl = document.getElementById('savestat');
+    let statTimer = null;
+    function flashStat(txt) {   // brief, unobtrusive "saved ✓" in the header — confirms auto-save without a button
+      statEl.textContent = txt; statEl.classList.add('show');
+      clearTimeout(statTimer); statTimer = setTimeout(() => statEl.classList.remove('show'), 1100);
+    }
+
+    function renderRail() {
+      [...rail.querySelectorAll('.prow, .ghint, .newbtn, .ghdr')].forEach(n => n.remove());
+      const nb = document.createElement('button'); nb.className = 'newbtn'; nb.textContent = '＋ NEW PATCH';
+      nb.addEventListener('click', newBlank); rail.appendChild(nb);
+      const es = entries();
+      const groups = [...new Set(es.map(e => e.group))];
+      const order = [...GROUP_ORDER.filter(g => groups.includes(g)), ...groups.filter(g => !GROUP_ORDER.includes(g))];
+      order.forEach(g => {
+        const items = es.filter(e => e.group === g);
+        if (!items.length) return;
+        items.sort((a, b) => {   // vehicle groups follow the Designer order; others keep their listing order
+          const ia = VEHICLE_ORDER.indexOf(a.label), ib = VEHICLE_ORDER.indexOf(b.label);
+          if (ia === -1 && ib === -1) return 0;
+          if (ia === -1) return 1; if (ib === -1) return -1;
+          return ia - ib;
+        });
+        const hdr = document.createElement('div'); hdr.className = 'ghdr'; hdr.textContent = g; rail.appendChild(hdr);
+        items.forEach(e => {
+          const row = document.createElement('div'); row.className = 'prow';
+          const b = document.createElement('button'); b.className = 'preset' + (e.key === activeKey ? ' active' : '');
+          b.innerHTML = e.label + (e.edited ? ' <span class="ed">*</span>' : '');
+          b.addEventListener('click', () => selectEntry(e.key));
+          row.appendChild(b);
+          if (e.edited || e.kind === 'user') {
+            const act = document.createElement('button'); act.className = 'pact';
+            act.textContent = e.kind === 'user' ? '✕' : '↺';
+            act.title = e.kind === 'user' ? 'Delete this patch' : 'Revert to built-in';
+            act.addEventListener('click', ev => { ev.stopPropagation(); removeEntry(e); });
+            row.appendChild(act);
+          }
+          rail.appendChild(row);
+        });
+      });
+      const hint = document.createElement('div'); hint.className = 'ghint';
+      hint.textContent = 'Edits auto-save per patch as you go (↺ reverts a preset to built-in). ＋ NEW starts a blank patch.';
+      rail.appendChild(hint);
+    }
+
+    // keep edits stuck to the patch we're leaving (only if actually changed → no spurious overrides)
+    function stashActive() {
+      if (!activeKey || baseline === null) return;
+      const cur = JSON.stringify(editor.getPatch());
+      if (cur !== baseline) { userPatches[activeKey] = JSON.parse(cur); persistStore(); }
+    }
+    function setActive(key) { activeKey = key; baseline = JSON.stringify(editor.getPatch()); }
+    function selectEntry(key) {
+      const e = entries().find(x => x.key === key);
+      if (!e) return;
+      stashActive();                                  // ← edits persist across switches
+      editor.loadPatch(e.patch); setActive(key); renderRail(); fire();
+    }
+    // ＋ NEW = blank slate: a single OUT node to build from (＋ NODE adds sources)
+    function newBlank() {
+      const name = (prompt('Name the new patch:', 'My Patch') || '').trim();
+      if (!name) return;
+      let key = 'user:' + name, i = 2;
+      while (userPatches[key]) key = `user:${name} ${i++}`;
+      stashActive();                                  // keep edits on the patch we're leaving
+      editor.loadPatch({ name, kind: 'custom', dur: 2, nodes: [{ id: 'out', type: 'out' }], cables: [] });
+      setActive(key);
+      userPatches[key] = clone(editor.getPatch()); persistStore();
+      renderRail(); flashStat('new ✓'); persist();
+    }
+    function removeEntry(e) {
+      if (e.kind === 'user' && !confirm(`Delete patch "${e.label}"?`)) return;
+      const wasActive = activeKey === e.key;
+      delete userPatches[e.key]; persistStore();
+      if (e.kind === 'preset') { renderRail(); if (wasActive) selectEntry(e.key); }   // revert → reload built-in
+      else if (wasActive) { activeKey = null; selectEntry(entries()[0]?.key); }
+      else renderRail();
+    }
+
+    // ── boot: restore the auto-saved session, else default to the railgun preset ──
+    renderRail();
+    let booted = false;
+    try {
+      const wip = JSON.parse(localStorage.getItem(WIP_KEY) || 'null');
+      if (wip && wip.patch && wip.patch.nodes && wip.patch.nodes.length) {
+        editor.loadPatch(wip.patch); setActive(wip.activeKey || null); renderRail(); booted = true;
+      }
+    } catch (e) { showErr('wip', e); }
+    if (!booted) {
+      const firstKey = Object.keys(PATCH_PRESETS).find(k => PATCH_PRESETS[k].kind === 'railgun') || Object.keys(PATCH_PRESETS)[0];
+      editor.loadPatch(entries().find(x => x.key === firstKey).patch); setActive(firstKey); renderRail();
+    }
+
+    // ── top-bar controls ───────────────────────────────────────────────────
+    document.getElementById('play').addEventListener('click', fire);
+    document.getElementById('stop').addEventListener('click', stopVoice);
+    document.getElementById('export').addEventListener('click', () => {
+      const t = document.getElementById('exportbox');
+      t.value = JSON.stringify(editor.getPatch(), null, 2);
+      t.style.display = t.style.display === 'block' ? 'none' : 'block';
+      if (t.style.display === 'block') { t.select(); navigator.clipboard?.writeText(t.value).catch(() => {}); }
+    });
+    window.addEventListener('keydown', e => { if (e.code === 'Space' && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') { e.preventDefault(); fire(); } });
+    } catch (e) { showErr('init', e); }
+  </script>
+</body>
+</html>
