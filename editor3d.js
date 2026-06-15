@@ -11,7 +11,7 @@
 //
 // opts: { onChange, getLevel():0..1 (cable pulse), getWave():Uint8Array|null (OUT scope) }
 
-import * as THREE from '../math-games/dino-math/js/three.module.js';
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.140.0/build/three.module.js';
 import { NODE_SPECS, DEFAULTS, helpFor } from './specs.js?v=20260613x';
 
 const CAT_COLOR = { osc: '#00d8ff', noise: '#4ad07a', filter: '#ffcf4d', shaper: '#ff7a3c', gain: '#5a9bff', delay: '#46c0b8', cv: '#c879ff', reverb: '#7a9ac0', master: '#00eeff' };
