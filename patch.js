@@ -194,9 +194,16 @@ function bEnv(ctx, n, t0) {
   else if (n.attackCurve === 'lin' || !expOK) { o.setValueAtTime(0, t); o.linearRampToValueAtTime(p, t + atk); }
   else { o.setValueAtTime(fl, t); o.exponentialRampToValueAtTime(p, t + atk); }
   // decay → sustain
-  if (sus > fl) {                                           // held: decay to sustain, ring until STOP
+  if (sus > fl) {                                           // held: decay to sustain, ring until STOP…
     expOK ? o.exponentialRampToValueAtTime(sus, t + atk + dec) : o.linearRampToValueAtTime(sus, t + atk + dec);
     release = (rt) => { try { o.cancelScheduledValues(rt); o.setTargetAtTime(0, rt, Math.max(0.005, (n.release ?? 0.3) / 3)); } catch (e) {} };
+    // …unless a HOLD is set: sustain for `hold` seconds, then auto-release (a timed plateau —
+    // lets a long steady sound like the elevator ride end itself, one-shot style).
+    if ((n.hold ?? 0) > 0) {
+      const rt = t + atk + dec + n.hold;
+      o.setValueAtTime(sus, rt);
+      o.setTargetAtTime(0, rt, Math.max(0.005, (n.release ?? 0.3) / 3));
+    }
   } else {                                                  // one-shot: decay to TRUE 0 (VCA fully shuts, voice can auto-stop)
     if (expOK) o.exponentialRampToValueAtTime(fl, t + atk + dec);
     else o.setValueAtTime(0, t + atk + dec);
@@ -222,60 +229,40 @@ const BUILDERS = {
 };
 
 // ════════════════════════════════════════════════════════════════════════════════
-//  AUTO-STOP DETERMINATION
-//  A patch is "finite" (a one-shot SFX) when NO audio source can reach the output
-//  except through a CLOSING VCA — a gain node sitting at base 0, driven only by
-//  one-shot envelopes (pluck/target/ad). Once those envelopes finish, every path is
-//  shut, so the voice can tear itself down. A source that reaches the output through
-//  an OPEN gain (static level > 0, or a VCA held up by an ADSR sustain) means the
-//  sound is continuous (engine/drone) — those never auto-stop.
+//  AUTO-STOP DETERMINATION — the ENVELOPE is the off switch (see patchAutoStopTime):
+//  any envelope present ⇒ the voice ends; no envelope ⇒ a deliberate drone (engines).
 // ════════════════════════════════════════════════════════════════════════════════
 function envEndTime(n) {
-  if ((n.sustain ?? 0) > 0.001) return Infinity;            // held → sustains until STOP
+  if ((n.sustain ?? 0) > 0.001) {
+    if ((n.hold ?? 0) > 0)                                  // timed plateau → ends after hold + release tail
+      return (n.delay || 0) + (n.attack ?? 0.01) + (n.decay ?? 0.2) + n.hold + (n.release ?? 0.3) * 1.5;
+    return Infinity;                                        // held → sustains until STOP
+  }
   return (n.delay || 0) + (n.attack ?? 0.01) + (n.decay ?? 0.2) + 0.02;   // one-shot → ends after decay
 }
-export function patchIsFinite(patch) {
-  const byId = {}; patch.nodes.forEach(n => byId[n.id] = n);
-  const gainCV = {};                                        // gain node id -> [ids feeding its 'gain' param]
-  const audioOut = {};                                      // node id -> [downstream ids via an audio cable]
-  patch.cables.forEach(c => {
-    if (c.port === 'gain') (gainCV[c.to] || (gainCV[c.to] = [])).push(c.from);
-    else if (!c.port || c.port === 'in') (audioOut[c.from] || (audioOut[c.from] = [])).push(c.to);
-  });
-  const isClosingVCA = (n) => {
-    if (!n || n.type !== 'gain') return false;
-    if ((n.gain ?? 0) > 0) return false;                    // static level → stays open
-    const ins = gainCV[n.id] || [];
-    if (!ins.length) return false;                          // nothing driving it → bias open (don't auto-stop)
-    return ins.every(id => { const s = byId[id]; return s && s.type === 'env' && (s.sustain ?? 0) <= 0.001; });   // one-shot env = closing
-  };
-  const SOURCES = new Set(['osc', 'noise']), SINKS = new Set(['out', 'send']);
-  const reachesSinkOpen = (startId) => {
-    const seen = new Set(), stack = [startId];
-    while (stack.length) {
-      const id = stack.pop(); if (seen.has(id)) continue; seen.add(id);
-      const node = byId[id]; if (!node) continue;
-      if (node.type === 'gain' && isClosingVCA(node)) continue;   // gate shut here → blocked
-      if (SINKS.has(node.type)) return true;                       // reached output through open gains
-      (audioOut[id] || []).forEach(nx => stack.push(nx));
-    }
-    return false;
-  };
-  return !patch.nodes.some(n => SOURCES.has(n.type) && reachesSinkOpen(n.id));
-}
-// seconds-from-now to auto-stop a finite patch (after its last envelope), or null to run forever
+// Seconds-from-now to auto-stop the voice, or null to run until STOP.
+// THE RULE (Jacob's, 2026-07-08): an ENVELOPE is the "off switch" — if the patch has any envelope,
+// the voice ENDS; with none, it's a deliberate drone (the engines). Precisely:
+//   • all envelopes one-shot / timed-hold → stop right after the LAST one finishes (its natural end),
+//   • any HELD envelope (sustain > 0, no hold) → the voice lives for the patch's `dur`, then releases,
+//   • no envelopes at all → null (runs until STOP).
+// (Replaces the old graph analysis that only auto-stopped when EVERY audio path was gated by an
+//  env-VCA — which read as "engine-brain": deleting one env could silently turn an SFX into a drone.)
 export function patchAutoStopTime(patch) {
-  if (!patchIsFinite(patch)) return null;
-  let maxEnd = 0, hasEnv = false;
+  let maxEnd = 0, hasEnv = false, hasHeld = false;
   for (const n of patch.nodes) {
-    if (n.type !== 'env') continue;
+    if (n.type !== 'env' || n.disabled) continue;
     hasEnv = true;
     const e = envEndTime(n);
-    if (!isFinite(e)) return null;
-    maxEnd = Math.max(maxEnd, e);
+    if (!isFinite(e)) hasHeld = true;                       // a held env (sustain>0, no timed hold)
+    else maxEnd = Math.max(maxEnd, e);
   }
-  return hasEnv ? maxEnd + 0.2 : null;                      // no envelopes → nothing scheduled to end
+  if (!hasEnv) return null;                                 // no envelopes → deliberate drone (engines)
+  if (hasHeld) return (patch.dur || 3) + 0.2;               // held env → voice lasts `dur`, then release/stop
+  return maxEnd + 0.2;                                      // all one-shot → stop after the last envelope
 }
+// A patch is "finite" (auto-stops) iff the rule above schedules an end.
+export function patchIsFinite(patch) { return patchAutoStopTime(patch) != null; }
 
 // ════════════════════════════════════════════════════════════════════════════════
 //  playPatch — instantiate the whole patch as ONE live voice, triggered now at t0.
@@ -375,7 +362,7 @@ export { BUILDERS, distortionCurve };
 //  proof: A/B rendered against gunsynth.js in the offline rig.
 // ════════════════════════════════════════════════════════════════════════════════
 export const PATCH_PRESETS = {
-  // LURCHER autocannon (bro's tune 2026-06-14): body noise + pitch-diving sine tone → ×1.53 → grit shaper
+  // LURCHER autocannon (tuned 2026-06-14): body noise + pitch-diving sine tone → ×1.53 → grit shaper
   'LURCHER — GUN A': {
     name: 'Lurcher', group: 'GUNS', kind: 'ballistic', dur: 0.6,
     nodes: [
@@ -397,7 +384,7 @@ export const PATCH_PRESETS = {
     ],
   },
 
-  // JOTUN railgun — "RAIL D — Your Pick" — bro's OFFICIAL tune (2026-06-14): charge whine+flutter →
+  // JOTUN railgun — "RAIL D — Your Pick" — official tune (2026-06-14): charge whine+flutter →
   // crack + envelope-driven boom; discharge at ~0.9s. Also the Vehicle Designer's Jotun gun (via RAILGUN_PATCH).
   'JOTUN — RAIL D': {
     name: 'Jotun', group: 'GUNS', kind: 'railgun', dur: 2.2,
@@ -430,7 +417,7 @@ export const PATCH_PRESETS = {
     ],
   },
 
-  // FIREBRAT — turbine/thruster engine (bro's tuned settings 2026-06-14, from ~/firebrad_engine_settings).
+  // FIREBRAT — turbine/thruster engine (tuned settings 2026-06-14, from ~/firebrad_engine_settings).
   //   motor   = low stepped-noise chug (freq 27.1, steps 38) — RPMs sets its rate
   //   exhaust = broadband noise → resonant BANDPASS (Q 9.9 @ 2380) → max grit; sweeps brighter on revs
   //   turbine = detuned saw spooling up in pitch on revs
@@ -599,8 +586,8 @@ export const PATCH_PRESETS = {
 
   // ── VEHICLE ENGINES (ports of the Designer ENGINE_CONFIGS; RPMs value node = throttle 0→1, fanned
   //    out through MULTs to pitch / AM-rate / cutoff). Continuous (static gains → drone till STOP).
-  //    Starters — need bro's ear-tune. ──────────────────────────────────────────────────────────
-  'LURCHER — ENGINE': {   // electric servo (bro's tune 2026-06-14): square + firing-pulse tremolo, NO hiss layer
+  //    Starters — need manual ear-tune. ──────────────────────────────────────────────────────────
+  'LURCHER — ENGINE': {   // electric servo (tuned 2026-06-14): square + firing-pulse tremolo, NO hiss layer
     name: 'Lurcher', group: 'ENGINES', kind: 'engine', dur: 3,
     nodes: [
       { id: 'rpm', type: 'value', name: 'RPMs', value: 0, delay: 0, x: 1.0045283921051216, y: 0 },
@@ -622,7 +609,7 @@ export const PATCH_PRESETS = {
     ],
   },
 
-  'VALKYRIE — ENGINE': {   // ducted-fan thrum (bro's tune 2026-06-14): saw under air, square wop-wop AM, final lowpass
+  'VALKYRIE — ENGINE': {   // ducted-fan thrum (tuned 2026-06-14): saw under air, square wop-wop AM, final lowpass
     name: 'Valkyrie', group: 'ENGINES', kind: 'engine', dur: 3,
     nodes: [
       { id: 'rpm', type: 'value', name: 'RPMs', value: 0, delay: 0, x: 3.848424268399888, y: 0 },
@@ -648,7 +635,7 @@ export const PATCH_PRESETS = {
     ],
   },
 
-  'JOTUN — ENGINE': {   // pure-noise diesel (bro's tune 2026-06-14): body lowpass + resonant grit band, firing-pulse chug
+  'JOTUN — ENGINE': {   // pure-noise diesel (tuned 2026-06-14): body lowpass + resonant grit band, firing-pulse chug
     name: 'Jotun', group: 'ENGINES', kind: 'engine', dur: 3,
     nodes: [
       { id: 'rpm', type: 'value', name: 'RPMs', value: 0, delay: 0, x: 0, y: 150 },
@@ -678,7 +665,7 @@ export const PATCH_PRESETS = {
   },
 
   // FIREBRAT gun — light rapid pulse-laser: bright zap (saw 1700→700) + tick + bandpass body (port of GUN_CONFIGS[1])
-  'FIREBRAT — GUN': {   // bro 2026-06-14: swapped to the simpler synth LASER ZAP (square dive 2000→200)
+  'FIREBRAT — GUN': {   // tuned 2026-06-14: swapped to the simpler synth LASER ZAP (square dive 2000→200)
     name: 'Firebrat', group: 'GUNS', kind: 'laser', dur: 0.5,
     nodes: [
       { id: 'z-osc', type: 'osc', name: 'zap', wave: 'square', freq: 200, freqMod: 1800 },     // dives ~2000 → 200
@@ -693,4 +680,53 @@ export const PATCH_PRESETS = {
       { from: 'z-g', to: 'out' },
     ],
   },
+
+  // ── WORLD FX (2026-07-08, for Jacob to tinker/approve, then port into the game) ─────────────
+
+  // ELEVATOR — SERVO. Jacob's approved design (2026-07-08): a quiet detuned saw pair whose pitch
+  // swells up over 1.4s under load, one held env driving both pitch and level. Deliberately low
+  // (whine 0.15 × out 0.1). In-game the LIFT owns the timing — play on rise, stop() on arrival, so
+  // it runs exactly as long as the animation; `dur` 5 is just the lab-preview length (then it releases).
+  'ELEVATOR — SERVO': {
+    name: 'Elevator', group: 'WORLD', kind: 'mech', dur: 5.0,
+    nodes: [
+      { id: 'whine', type: 'osc', name: 'servo whine', wave: 'sawtooth', freq: 100, freqMod: 1643.5, voices: 2, detune: 40 },
+      { id: 'whine-g', type: 'gain', name: 'whine', gain: 0.15 },
+      { id: 'env3', type: 'env', name: 'ride', peak: 0.01, attack: 1.4, decay: 0.002, sustain: 1, hold: 0, release: 0.464, attackCurve: 'exp' },
+      { id: 'out', type: 'out', name: 'output', gain: 0.1 },
+    ],
+    cables: [
+      { from: 'env3', to: 'whine', port: 'freq' },
+      { from: 'env3', to: 'whine-g', port: 'gain' },
+      { from: 'whine', to: 'whine-g' },
+      { from: 'whine-g', to: 'out' },
+    ],
+  },
+
+  // SOLDIER — SQUISH lives as a SAMPLE now (rmrf/sounds/squish.mp3, from Jacob's "squish2" recording).
+  // Synthesis couldn't do a convincing wet squish, so the game plays the sample; no squish preset here.
+
+  // MINE — EXPLOSION. Jacob's own lab design (2026-07-08): a low stepped-noise blast (grit + lowpass)
+  // summed with a square "thud" osc (pitch dropping ~317->146 Hz via env4), the whole mix VCA'd by
+  // env2 -- a long exp decay to a 0.1 sustain + big release, so it thumps then rings out. env2 is
+  // held, so under the envelope rule it auto-stops at `dur` then releases.
+  'MINE — EXPLOSION': {
+    name: 'Mine', group: 'WORLD', kind: 'perc', dur: 0.85,
+    nodes: [
+      { id: 'body', type: 'noise', name: 'blast', freq: 8.2, steps: 119, rate: 0.4, level: 1, loopLen: 1.25 },
+      { id: 'body-sh', type: 'shaper', name: 'blast', grit: 0.38 },
+      { id: 'body-lp', type: 'filter', name: 'blast', ftype: 'lowpass', freq: 1510, Q: 0.5 },
+      { id: 'osc3', type: 'osc', name: 'thud', wave: 'square', freq: 109.9, freqMod: 285, level: 3 },
+      { id: 'env4', type: 'env', name: 'thud', peak: 0.45, attack: 0, decay: 0.28, sustain: 0, release: 0.3, attackCurve: 'lin' },
+      { id: 'gain5', type: 'gain', name: 'thud' },
+      { id: 'env2', type: 'env', name: 'blast', peak: 2.5, attack: 0, decay: 0.976, sustain: 0.1, release: 2.912, attackCurve: 'exp' },
+      { id: 'gain1', type: 'gain', name: 'mix' },
+      { id: 'out', type: 'out', name: 'output', gain: 0.82 },
+    ],
+    cables: [
+      { from: 'body', to: 'body-sh' }, { from: 'body-sh', to: 'body-lp' }, { from: 'body-lp', to: 'gain1' },
+      { from: 'osc3', to: 'gain5' }, { from: 'env4', to: 'osc3', port: 'freq' }, { from: 'env4', to: 'gain5', port: 'gain' }, { from: 'gain5', to: 'gain1' },
+      { from: 'env2', to: 'gain1', port: 'gain' }, { from: 'gain1', to: 'out' },
+    ],
+  }
 };
