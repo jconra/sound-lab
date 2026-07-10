@@ -1080,7 +1080,14 @@ export function createEditor3D(root, opts = {}) {
   let lpTimer = null, lpX = 0, lpY = 0;
   function startLongPress(x, y) { clearLongPress(); lpX = x; lpY = y; lpTimer = setTimeout(() => { lpTimer = null; drag = null; openPaletteAt(lpX, lpY); }, 480); }
   function clearLongPress() { if (lpTimer) { clearTimeout(lpTimer); lpTimer = null; } }
-  renderer.domElement.addEventListener('contextmenu', e => e.preventDefault());   // suppress the native long-press/right-click menu (we show our own)
+  // Suppress the native right-click / long-press menu across the WHOLE app (we show our own
+  // add-node palette) — not just the canvas, so it can't leak over the palette, inspector, or
+  // empty page margins. Real text fields keep their menu so copy/paste still works there.
+  document.addEventListener('contextmenu', e => {
+    const t = e.target;
+    if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+    e.preventDefault();
+  });
 
   renderer.domElement.addEventListener('pointermove', e => {
     const rec0 = ptrs.get(e.pointerId); if (rec0) { rec0.x = e.clientX; rec0.y = e.clientY; }

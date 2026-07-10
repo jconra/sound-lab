@@ -57,6 +57,7 @@
       <button id="play">▶ FIRE</button>
       <button id="stop" class="ghost">■ STOP</button>
       <button id="export" class="ghost">EXPORT</button>
+      <button id="import" class="ghost">IMPORT</button>
     </span>
   </header>
 
@@ -67,7 +68,7 @@
     <main class="stage"><div id="stage3d"></div></main>
   </div>
 
-  <textarea id="exportbox" readonly></textarea>
+  <textarea id="exportbox" placeholder="EXPORT dumps the current patch here. Or paste a patch's JSON in and hit IMPORT to load it as a new patch under MINE."></textarea>
 
   <script>
     // ── on-screen crash readout (mobile has no dev console) ──
@@ -279,6 +280,26 @@
       t.value = JSON.stringify(editor.getPatch(), null, 2);
       t.style.display = t.style.display === 'block' ? 'none' : 'block';
       if (t.style.display === 'block') { t.select(); navigator.clipboard?.writeText(t.value).catch(() => {}); }
+    });
+    // IMPORT: parse the JSON in the export box and load it as a NEW patch (under MINE — never
+    // clobbers a built-in). First click just reveals/focuses the box so there's a place to paste.
+    document.getElementById('import').addEventListener('click', () => {
+      const t = document.getElementById('exportbox');
+      if (t.style.display !== 'block') { t.style.display = 'block'; t.focus(); if (!t.value.trim()) return; }
+      let p;
+      try { p = JSON.parse(t.value); }
+      catch (e) { showErr('import', new Error('Not valid JSON — paste a patch export into the box, then IMPORT.')); return; }
+      if (!p || !Array.isArray(p.nodes) || !Array.isArray(p.cables)) {
+        showErr('import', new Error('That JSON has no nodes/cables — it is not a patch.')); return;
+      }
+      const name = (p.name || 'Imported').trim() || 'Imported';
+      let key = 'user:' + name, i = 2;
+      while (userPatches[key]) key = `user:${name} ${i++}`;   // don't overwrite an existing patch of the same name
+      stashActive();
+      editor.loadPatch(p); setActive(key);
+      userPatches[key] = clone(editor.getPatch()); persistStore();
+      renderRail(); flashStat('imported ✓'); persist();
+      t.style.display = 'none'; fire();
     });
     window.addEventListener('keydown', e => { if (e.code === 'Space' && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') { e.preventDefault(); fire(); } });
     } catch (e) { showErr('init', e); }

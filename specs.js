@@ -26,7 +26,7 @@ export const NODE_SPECS = {
   delay:  { title: 'DELAY',  cat: 'delay',  hasIn: true,  out: 'audio',   // echo: dry passes through, wet repeats fed back through a delay line
             params: [['time', r(0.001, 1.5, 0.001)], ['feedback', r(0, 0.95, 0.01)], ['tone', r(200, 12000, 10, true)], ['wet', r(0, 1.5, 0.01)]], cv: ['time', 'feedback', 'tone', 'wet'] },
   env:    { title: 'ENV',    cat: 'cv',     hasIn: false, out: 'cv',   // ADSR. sustain 0 = one-shot (auto-stops); sustain>0 = held until STOP
-            params: [['delay', r(0, 3, 0.01)], ['peak', r(0, 2.5, 0.01)], ['attack', r(0, 2, 0.005)], ['decay', r(0.002, 2, 0.002)], ['sustain', r(0, 1, 0.01)], ['release', r(0.002, 3, 0.002)], ['attackCurve', seg('exp', 'lin')]], cv: [] },
+            params: [['delay', r(0, 3, 0.01)], ['peak', r(0, 2.5, 0.01)], ['attack', r(0, 2, 0.005)], ['decay', r(0.002, 2, 0.002)], ['sustain', r(0, 1, 0.01)], ['hold', r(0, 10, 0.05)], ['release', r(0.002, 3, 0.002)], ['attackCurve', seg('exp', 'lin')]], cv: [] },
   value:  { title: 'VALUE',  cat: 'cv',     hasIn: false, out: 'cv',
             params: [['delay', r(0, 3, 0.01)], ['value', r(0, 4, 0.01)]], cv: ['value'] },
   math:   { title: 'MULT',   cat: 'cv',     hasIn: true,  out: 'cv',   // CV utility: scales the signal at its input by `mul` (out = in × mul)
@@ -55,6 +55,7 @@ export const HELP = {
   attack: 'Time to ramp up to peak (seconds).',
   decay: 'Time to fall from peak down to the sustain level (seconds).',
   sustain: 'Level held while playing, as a fraction of peak. 0 = one-shot.',
+  hold: 'With sustain > 0: seconds to hold the sustain level, then auto-release (a timed plateau). 0 = hold until STOP.',
   release: 'Fade-out time after STOP / note-off (seconds).',
   attackCurve: 'Shape of the attack ramp: exp or lin.',
   peak: 'Height the envelope reaches, in the target’s units (a gain above 1 boosts).',
@@ -85,7 +86,7 @@ export const DEFAULTS = {
   gain: { gain: 0.8 },
   shaper: { grit: 0.3 },
   delay: { time: 0.3, feedback: 0.4, tone: 4000, wet: 0.5 },
-  env: { peak: 1, attack: 0.01, decay: 0.3, sustain: 0.6, release: 0.3, attackCurve: 'exp', delay: 0 },
+  env: { peak: 1, attack: 0.01, decay: 0.3, sustain: 0.6, hold: 0, release: 0.3, attackCurve: 'exp', delay: 0 },
   value: { value: 1, delay: 0 },
   math: { mul: 1 },
   send: { gain: 0.3 },

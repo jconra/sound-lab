@@ -703,8 +703,10 @@ export const PATCH_PRESETS = {
     ],
   },
 
-  // SOLDIER — SQUISH lives as a SAMPLE now (rmrf/sounds/squish.mp3, from Jacob's "squish2" recording).
-  // Synthesis couldn't do a convincing wet squish, so the game plays the sample; no squish preset here.
+  // SOLDIER — SQUISH: 'WORLD — SQUISH (synth)' below is the chosen synth squish (Jacob dialed it in
+  // 2026-07-10, replacing the old rmrf/sounds/squish.mp3 sample). No oscillators — two swelling
+  // resonant bandpasses: an up-sweeping wet body (env1×4000 → bp freq) plus a delayed second
+  // squelch (env7×613 → filter9, both fired ~0.2s in). squishAt() in the game plays it positioned.
 
   // MINE — EXPLOSION. Jacob's own lab design (2026-07-08): a low stepped-noise blast (grit + lowpass)
   // summed with a square "thud" osc (pitch dropping ~317->146 Hz via env4), the whole mix VCA'd by
@@ -727,6 +729,64 @@ export const PATCH_PRESETS = {
       { from: 'body', to: 'body-sh' }, { from: 'body-sh', to: 'body-lp' }, { from: 'body-lp', to: 'gain1' },
       { from: 'osc3', to: 'gain5' }, { from: 'env4', to: 'osc3', port: 'freq' }, { from: 'env4', to: 'gain5', port: 'gain' }, { from: 'gain5', to: 'gain1' },
       { from: 'env2', to: 'gain1', port: 'gain' }, { from: 'gain1', to: 'out' },
+    ],
+  },
+
+  // SQUISH (synth attempt, 2026-07-10) — a wet squelch built from resonant formants, not a sample.
+  // Core: white noise through a high-Q bandpass whose cutoff SNAPS up then squelches back down
+  // (a mouth-closing formant sweep, base 320 + env×1500) for the "squish"; a parallel static
+  // bandpass at 720 Hz adds a second vocal-ish formant (wetness). A triangle sub with a fast pitch
+  // drop is the moist low "pop". Soft (non-zero) envelope attacks avoid a dry click. Grit adds body.
+  'WORLD — SQUISH (synth)': {
+    name: 'Squish', group: 'WORLD', kind: 'perc', dur: 0.5,
+    nodes: [
+      { id: 'nz', type: 'noise', name: 'wet', freq: 1.9, steps: 191, rate: 0.78, loopLen: 1.45, level: 1.06, x: 477.84, y: -200.26 },
+      { id: 'bp', type: 'filter', name: 'formant', ftype: 'bandpass', freq: 1290, Q: 16, x: 762.32, y: -125.45 },
+      { id: 'g1', type: 'gain', name: 'formant', gain: 0, x: 1076.32, y: 16.45 },
+      { id: 'wamp', type: 'env', name: 'wet amp', peak: 5, attack: 0.345, decay: 0.002, sustain: 0, attackCurve: 'lin', release: 0.002, delay: 0, x: 765.57, y: 96.29 },
+      { id: 'out', type: 'out', name: 'output', gain: 1, x: 1341.31, y: 233.16 },
+      { id: 'env1', type: 'env', name: '', peak: 5, attack: 0.18, decay: 0.002, sustain: 1, release: 0.002, attackCurve: 'exp', delay: 0, x: 187.49, y: 55.76 },
+      { id: 'math2', type: 'math', name: '', mul: 4000, x: 471.19, y: -15.40 },
+      { id: 'noise6', type: 'noise', name: '', rate: 1.18, level: 1, freq: 4.1, steps: 140, loopLen: 1.2, x: 475.54, y: 280.13 },
+      { id: 'env7', type: 'env', name: '', peak: 10, attack: 0, decay: 0.532, sustain: 0, release: 0.002, attackCurve: 'exp', delay: 0.2, x: 185.52, y: 483.34 },
+      { id: 'math8', type: 'math', name: '', mul: 613.7, x: 476.50, y: 461.40 },
+      { id: 'filter9', type: 'filter', name: '', ftype: 'bandpass', freq: 230, Q: 9.5, x: 765.57, y: 337.38 },
+      { id: 'env10', type: 'env', name: '', peak: 0.91, attack: 0.06, decay: 0.16, sustain: 0, release: 0.002, attackCurve: 'exp', delay: 0.19, x: 761.90, y: 561.40 },
+      { id: 'gain11', type: 'gain', name: '', gain: 0, x: 1067.82, y: 414.58 },
+    ],
+    cables: [
+      { from: 'nz', to: 'bp' }, { from: 'env1', to: 'math2' }, { from: 'math2', to: 'bp', port: 'freq' },
+      { from: 'wamp', to: 'g1', port: 'gain' }, { from: 'bp', to: 'g1' }, { from: 'g1', to: 'out' },
+      { from: 'noise6', to: 'filter9' }, { from: 'env7', to: 'math8' }, { from: 'math8', to: 'filter9', port: 'freq' },
+      { from: 'env10', to: 'gain11', port: 'gain' }, { from: 'filter9', to: 'gain11' }, { from: 'gain11', to: 'out' },
+    ],
+  },
+
+  // RELAY CLANK (2026-07-10, Jacob's tuning) — a light electromechanical clack for GARAGE vehicle
+  // selection (plays when the player switches vehicle and the deck light changes). Broadband noise
+  // CONTACT CLICK (its bandpass BYPASSED for a fuller tick), a detuned-triangle metallic RING, and
+  // a slow-swelling low TOCK for physical weight; bus makeup ×2. Pasted in from his lab export.
+  'WORLD — RELAY CLANK': {
+    name: 'Relay clank', group: 'WORLD', kind: 'mech', dur: 0.2,
+    nodes: [
+      { id: 'ck', type: 'noise', name: 'click', freq: 600, steps: 256, rate: 1, level: 1, loopLen: 1.2, x: 1.18, y: -64.88 },
+      { id: 'ckf', type: 'filter', name: 'click', ftype: 'bandpass', freq: 12000, Q: 1.4, x: 352.89, y: -164.47, disabled: true },
+      { id: 'ckg', type: 'gain', name: 'click', gain: 0, x: 640, y: 43.13 },
+      { id: 'cke', type: 'env', name: 'click amp', peak: 2.5, attack: 0.03, decay: 0.03, sustain: 0, release: 0.3, delay: 0, x: 312.92, y: 35.49 },
+      { id: 'ring', type: 'osc', name: 'clank', wave: 'triangle', freq: 1500, voices: 2, detune: 240, x: 320, y: 257.49 },
+      { id: 'rg', type: 'gain', name: 'clank', gain: 0, x: 640, y: 343.15 },
+      { id: 're', type: 'env', name: 'clank amp', peak: 2.5, attack: 0, decay: 0.238, sustain: 0, release: 0.092, delay: 0, x: 320, y: 428.74 },
+      { id: 'tk', type: 'osc', name: 'tock', wave: 'sine', freq: 178.5, freqMod: 90, level: 0.5, x: 320, y: 654.54 },
+      { id: 'tkg', type: 'gain', name: 'tock', gain: 0, x: 640.77, y: 740.68 },
+      { id: 'tke', type: 'env', name: 'tock amp', peak: 1.62, attack: 0.125, decay: 0.156, sustain: 0, release: 0.3, delay: 0, x: 318.99, y: 881.36 },
+      { id: 'bus', type: 'gain', name: 'mix', gain: 2, x: 960, y: 375.65 },
+      { id: 'out', type: 'out', name: 'output', gain: 0.7, x: 1280, y: 375.65 },
+    ],
+    cables: [
+      { from: 'ck', to: 'ckf' }, { from: 'ckf', to: 'ckg' }, { from: 'cke', to: 'ckg', port: 'gain' }, { from: 'ckg', to: 'bus' },
+      { from: 'ring', to: 'rg' }, { from: 're', to: 'rg', port: 'gain' }, { from: 'rg', to: 'bus' },
+      { from: 'tk', to: 'tkg' }, { from: 'tke', to: 'tkg', port: 'gain' }, { from: 'tkg', to: 'bus' },
+      { from: 'bus', to: 'out' },
     ],
   }
 };
