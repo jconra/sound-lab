@@ -683,17 +683,17 @@ export const PATCH_PRESETS = {
 
   // ── WORLD FX (2026-07-08, for Jacob to tinker/approve, then port into the game) ─────────────
 
-  // ELEVATOR — SERVO. Jacob's approved design (2026-07-08): a quiet detuned saw pair whose pitch
+  // ELEVATOR — SERVO. Jacob's approved design (2026-07-08): a quiet detuned TRIANGLE pair whose pitch
   // swells up over 1.4s under load, one held env driving both pitch and level. Deliberately low
-  // (whine 0.15 × out 0.1). In-game the LIFT owns the timing — play on rise, stop() on arrival, so
+  // (whine 0.15 × out 0.19 — was 0.1, raised twice per Jacob's ear 2026-07-10; triangle since same day: saw read too buzzy). In-game the LIFT owns the timing — play on rise, stop() on arrival, so
   // it runs exactly as long as the animation; `dur` 5 is just the lab-preview length (then it releases).
   'ELEVATOR — SERVO': {
     name: 'Elevator', group: 'WORLD', kind: 'mech', dur: 5.0,
     nodes: [
-      { id: 'whine', type: 'osc', name: 'servo whine', wave: 'sawtooth', freq: 100, freqMod: 1643.5, voices: 2, detune: 40 },
+      { id: 'whine', type: 'osc', name: 'servo whine', wave: 'triangle', freq: 100, freqMod: 1643.5, voices: 2, detune: 40 },
       { id: 'whine-g', type: 'gain', name: 'whine', gain: 0.15 },
       { id: 'env3', type: 'env', name: 'ride', peak: 0.01, attack: 1.4, decay: 0.002, sustain: 1, hold: 0, release: 0.464, attackCurve: 'exp' },
-      { id: 'out', type: 'out', name: 'output', gain: 0.1 },
+      { id: 'out', type: 'out', name: 'output', gain: 0.19 },
     ],
     cables: [
       { from: 'env3', to: 'whine', port: 'freq' },
