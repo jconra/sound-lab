@@ -693,7 +693,7 @@ export const PATCH_PRESETS = {
       { id: 'whine', type: 'osc', name: 'servo whine', wave: 'triangle', freq: 100, freqMod: 1643.5, voices: 2, detune: 40 },
       { id: 'whine-g', type: 'gain', name: 'whine', gain: 0.15 },
       { id: 'env3', type: 'env', name: 'ride', peak: 0.01, attack: 1.4, decay: 0.002, sustain: 1, hold: 0, release: 0.464, attackCurve: 'exp' },
-      { id: 'out', type: 'out', name: 'output', gain: 0.19 },
+      { id: 'out', type: 'out', name: 'output', gain: 0.65 },
     ],
     cables: [
       { from: 'env3', to: 'whine', port: 'freq' },
