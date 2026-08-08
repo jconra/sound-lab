@@ -46,6 +46,27 @@
     #stage3d { position: absolute; inset: 0; }
 
     #exportbox { position: absolute; right: 12px; top: 46px; width: 360px; max-width: calc(100vw - 24px); height: 220px; display: none; background: #02060a; color: #7fc; border: 1px solid #16505f; font-family: inherit; font-size: 10px; padding: 8px; z-index: 30; }
+
+    /* ── sequencer ─────────────────────────────────────────────────────────── */
+    #musicpanel { position: absolute; left: 12px; right: 12px; bottom: 12px; display: none;
+      background: rgba(2,8,12,0.96); border: 1px solid #16505f; border-radius: 7px; padding: 9px 11px; z-index: 40; }
+    #musicpanel .mhead { display: flex; align-items: center; gap: 9px; margin-bottom: 8px; font-size: 11px; color: #7fc; }
+    #musicpanel .mhead b { color: #ffd24a; letter-spacing: 2px; }
+    #musicpanel select { background: #07141b; color: #7fc; border: 1px solid #16505f; font-family: inherit; font-size: 11px; padding: 3px 5px; }
+    #musicpanel #mnote { color: #4d7f8f; font-size: 10px; }
+    #grid { overflow-x: auto; }
+    #grid table { border-collapse: collapse; font-size: 9px; }
+    #grid td, #grid th { border: 1px solid #0d2b36; padding: 0; }
+    #grid th.trk { text-align: right; padding: 0 7px; color: #7fc; font-weight: normal; white-space: nowrap; font-size: 10px; }
+    /* a beat is 4 cells; a heavier line every 4 makes the bar structure readable at a glance */
+    #grid td { width: 13px; height: 15px; background: #06121a; }
+    #grid td.beat { border-left-color: #1d5666; }
+    #grid td.bar { border-left-color: #3f8ea6; }
+    #grid td.on { background: #ffd24a; }
+    #grid td.on.d { background: #6ab7ff; }          /* percussion reads differently from pitched */
+    #grid td.play { box-shadow: inset 0 0 0 1px #ff8a3d; }
+    #grid td.head { background: #123; }
+    .mfoot { margin-top: 7px; font-size: 10px; color: #4d7f8f; line-height: 1.5; }
   </style>
 </head>
 <body>
@@ -58,6 +79,7 @@
       <button id="stop" class="ghost">■ STOP</button>
       <button id="export" class="ghost">EXPORT</button>
       <button id="import" class="ghost">IMPORT</button>
+      <button id="musicbtn" class="ghost">&#9835; MUSIC</button>
     </span>
   </header>
 
@@ -70,6 +92,21 @@
 
   <textarea id="exportbox" placeholder="EXPORT dumps the current patch here. Or paste a patch's JSON in and hit IMPORT to load it as a new patch under MINE."></textarea>
 
+  <!-- MUSIC: the sequencer. Same synth, many notes. The grid is read-only for now (click a cell
+       to audition its note) — the songs are authored in seq.js, where they can carry comments. -->
+  <div id="musicpanel">
+    <div class="mhead">
+      <b>SEQUENCER</b>
+      <select id="songsel"></select>
+      <button id="mplay">&#9654; PLAY</button>
+      <button id="mstop" class="ghost">&#9632; STOP</button>
+      <span id="mnote"></span>
+      <button id="mclose" class="ghost" style="margin-left:auto">&times;</button>
+    </div>
+    <div id="grid"></div>
+    <div class="mfoot" id="mfoot"></div>
+  </div>
+
   <script>
     // ── on-screen crash readout (mobile has no dev console) ──
     const errBox = document.getElementById('err');
@@ -81,8 +118,9 @@
     window.addEventListener('unhandledrejection', ev => showErr('promise', ev.reason));
   </script>
   <script type="module">
-    import { playPatch, makeNoiseBuffer, makeImpulse, PATCH_PRESETS } from './patch.js?v=20260712';
+    import { playPatch, makeNoiseBuffer, makeImpulse, PATCH_PRESETS } from './patch.js?v=20260807';
     import { createEditor3D } from './editor3d.js?v=20260613x';
+    import { Sequencer, SONGS, INSTRUMENTS } from './seq.js?v=20260807';
     try {
 
     let ctx = null, noise = null, master = null, sfx = null, reverbInput = null;
@@ -302,6 +340,86 @@
       t.style.display = 'none'; fire();
     });
     window.addEventListener('keydown', e => { if (e.code === 'Space' && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') { e.preventDefault(); fire(); } });
+
+    // ── SEQUENCER ────────────────────────────────────────────────────────────
+    // The songs live in seq.js as data, so they can carry the reasoning for why a line is what it
+    // is. This panel is the transport and a readable picture of the pattern: which instrument
+    // plays where, and a marker running along it so you can SEE what you are hearing.
+    let seq = null;
+    const songSel = document.getElementById('songsel');
+    const gridEl = document.getElementById('grid');
+    const panel = document.getElementById('musicpanel');
+    for (const k in SONGS) songSel.add(new Option(SONGS[k].name, k));
+
+    function ensureSeq() {
+      ensureCtx();
+      if (ctx.state === 'suspended') ctx.resume();
+      if (!seq) {
+        seq = new Sequencer(ctx, sfx, reverbInput);
+        seq.onStep = (step) => {
+          // Only repaint the marker — rebuilding the table 10 times a second would fight the
+          // patch editor for the main thread, which is the one thing that must stay smooth.
+          const cells = gridEl.querySelectorAll('td.play');
+          cells.forEach(c => c.classList.remove('play'));
+          gridEl.querySelectorAll(`td[data-s="${step}"]`).forEach(c => c.classList.add('play'));
+        };
+        seq.onEnd = () => { document.getElementById('mnote').textContent = 'done'; };
+      }
+      return seq;
+    }
+
+    function drawGrid(song) {
+      const total = song.bars * song.beats * song.div;
+      let h = '<table><tr><th class="trk"></th>';
+      for (let s = 0; s < total; s++)
+        h += `<td class="head ${s % (song.beats * song.div) === 0 ? 'bar' : s % song.div === 0 ? 'beat' : ''}">${s % song.div === 0 ? (s / song.div) % song.beats + 1 : ''}</td>`;
+      h += '</tr>';
+      for (const tr of song.tracks) {
+        const perc = tr.inst === 'SNARE' || tr.inst === 'DRUM';
+        h += `<tr><th class="trk">${tr.inst}</th>`;
+        // A note occupies its whole length, so a held bugle note reads as a bar and not a dot.
+        const on = new Array(total).fill(null);
+        for (const n of tr.notes)
+          for (let i = 0; i < Math.max(1, n[2] || 1) && n[0] + i < total; i++) on[n[0] + i] = n;
+        for (let s = 0; s < total; s++) {
+          const cls = [s % (song.beats * song.div) === 0 ? 'bar' : s % song.div === 0 ? 'beat' : ''];
+          if (on[s]) { cls.push('on'); if (perc) cls.push('d'); }
+          h += `<td data-s="${s}" class="${cls.join(' ')}" title="${on[s] ? 'semi ' + on[s][1] : ''}"></td>`;
+        }
+        h += '</tr>';
+      }
+      gridEl.innerHTML = h + '</table>';
+      const beats = song.bars * song.beats;
+      document.getElementById('mfoot').textContent =
+        `${song.bpm} BPM · ${song.bars} bars · ${song.tracks.length} tracks · ${(beats * 60 / song.bpm).toFixed(1)}s`
+        + (song.loop ? ' · loops' : ' · plays once (a sting)')
+        + ' — gold = pitched, blue = percussion. Songs are authored in seq.js.';
+    }
+
+    function showMusic(on) {
+      panel.style.display = on ? 'block' : 'none';
+      if (on) drawGrid(SONGS[songSel.value]);
+      else if (seq) seq.stop();
+    }
+    document.getElementById('musicbtn').addEventListener('click', () => showMusic(panel.style.display !== 'block'));
+    document.getElementById('mclose').addEventListener('click', () => showMusic(false));
+    songSel.addEventListener('change', () => {
+      drawGrid(SONGS[songSel.value]);
+      if (seq && seq.playing) seq.setSong(SONGS[songSel.value]);
+    });
+    document.getElementById('mplay').addEventListener('click', () => {
+      stopVoice();                                   // the patch voice and the song share the bus
+      const s = ensureSeq();
+      s.setSong(SONGS[songSel.value]); s.start();
+      document.getElementById('mnote').textContent = 'playing';
+    });
+    document.getElementById('mstop').addEventListener('click', () => {
+      if (seq) seq.stop();
+      document.getElementById('mnote').textContent = '';
+    });
+    // Probe hook: the sequencer lives in module scope, so a headless check cannot otherwise tell
+    // whether a song scheduled any notes at all.
+    window.__seq = () => ({ seq, SONGS, INSTRUMENTS });
     } catch (e) { showErr('init', e); }
   </script>
 </body>

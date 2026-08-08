@@ -92,8 +92,35 @@ function bOsc(ctx, n, t0) {
 //   • sample & hold         : steps=1 → one held random value per 1/freq sec
 //   Use it as audio, or wire its output into a param as random CV modulation.
 // `rate` = playbackRate (pitch/rev plug; CV in here revs it). `level` = output / mod depth.
+// Building a noise buffer is a full pass over `loopLen` seconds of samples, and the sequencer asks
+// for one on EVERY drum hit — at sixteenth-note speed that is a few hundred thousand samples a
+// second spent purely on setup, before a note has sounded. Keep a small RING per
+// (rate, freq, steps, loopLen) signature and draw from it at random.
+//
+// A ring rather than a single cache, deliberately. One shared buffer would make every shot from a
+// gun identical, and per-shot noise variation is a good part of why the gunfire sounds alive; four
+// gives successive hits different noise while the generation happens a handful of times instead of
+// every time. Keyed on sampleRate too, since an offline render rig runs at its own rate.
+const _noiseRing = new Map();
+const NOISE_RING = 4;
+function noiseBufFor(ctx, n) {
+  const key = `${ctx.sampleRate}|${n.freq}|${n.steps}|${n.loopLen}`;
+  let ring = _noiseRing.get(key);
+  if (!ring) { ring = []; _noiseRing.set(key, ring); }
+  if (ring.length < NOISE_RING) { const b = _buildNoiseBuf(ctx, n); ring.push(b); return b; }
+  return ring[(Math.random() * ring.length) | 0];
+}
+
 function bNoise(ctx, n, t0) {
   const out = ctx.createGain(); out.gain.value = n.level ?? 1;
+  const buf = noiseBufFor(ctx, n);
+  const src = ctx.createBufferSource(); src.buffer = buf; src.loop = true;
+  src.playbackRate.value = n.rate ?? 1;
+  src.connect(out);
+  return { in: null, out, params: { rate: src.playbackRate, level: out.gain }, starts: [src], at: t0 };   // runs from FIRE; envelopes do the timing
+}
+
+function _buildNoiseBuf(ctx, n) {
   const sr = ctx.sampleRate, f = Math.max(0.1, n.freq || 46);
   const steps = Math.max(1, Math.round(n.steps || 24));
   const period = sr / f;
@@ -108,10 +135,7 @@ function bNoise(ctx, n, t0) {
     if (phase >= period) { phase -= period; for (let k = 0; k < steps; k++) nb[k] = Math.random() * 2 - 1; }
     d[i] = nb[Math.min(steps - 1, Math.floor((phase / period) * steps))];
   }
-  const src = ctx.createBufferSource(); src.buffer = buf; src.loop = true;
-  src.playbackRate.value = n.rate ?? 1;
-  src.connect(out);
-  return { in: null, out, params: { rate: src.playbackRate, level: out.gain }, starts: [src], at: t0 };   // runs from FIRE; envelopes do the timing
+  return buf;
 }
 
 // value — a constant control source. Patch its output into any param to set/offset it
@@ -273,8 +297,44 @@ export function patchIsFinite(patch) { return patchAutoStopTime(patch) != null; 
 //  (Offline render rigs ignore the handle; with no stop, sources just play the
 //   full OfflineAudioContext length, which is what we want.)
 // ════════════════════════════════════════════════════════════════════════════════
-export function playPatch(ctx, noise, dest, reverbInput, patch, onEnded) {
-  const t0 = ctx.currentTime;
+// ── PLAYING A PATCH AS A NOTE ────────────────────────────────────────────────
+// A patch was authored as one sound at one pitch. Music needs the same patch at many pitches, at
+// scheduled times, for varying lengths — so rather than teaching the runtime about notes, rewrite
+// the patch DATA and let the existing runtime play it. A note is just a transposed patch.
+//
+//   semi — semitones from the patch's authored pitch. Scales oscillator frequencies and, with
+//          them, the FILTER frequencies: a filter left at a fixed cutoff turns a low note muddy
+//          and a high note thin, because the timbre stops moving with the pitch. Scaling both
+//          transposes the whole voice, so it stays recognisably the same instrument.
+//   len  — how long to hold the note, seconds. Applied to SUSTAINING envelopes only, as a timed
+//          plateau (see envEndTime's `hold`). Percussive one-shot envelopes are left alone: a
+//          drum's length is the drum, not the note, and stretching it would just detune the hit.
+//   gain — velocity, into the OUT node.
+//
+// NOISE is deliberately never transposed. It is what the drums are made of, and pitching a snare
+// with the melody is not a thing anybody wants.
+export function voicePatch(patch, { semi = 0, gain = 1, len = null } = {}) {
+  const r = Math.pow(2, semi / 12);
+  if (r === 1 && gain === 1 && len == null) return patch;
+  const nodes = patch.nodes.map(n => {
+    if (n.type === 'osc')
+      return { ...n, freq: (n.freq ?? 440) * r, freqMod: (n.freqMod ?? 0) * r };
+    if (n.type === 'filter')
+      return { ...n, freq: (n.freq ?? 800) * r, freqPeak: (n.freqPeak ?? 0) * r, freqEnd: (n.freqEnd ?? 0) * r };
+    if (n.type === 'out')
+      return { ...n, gain: (n.gain ?? 1) * gain };
+    if (n.type === 'env' && len != null && (n.sustain ?? 0) > 0.001)
+      return { ...n, hold: Math.max(0.01, len - (n.attack ?? 0.01) - (n.decay ?? 0.2)) };
+    return n;
+  });
+  return { ...patch, nodes };
+}
+
+// opts.at — absolute ctx time to start at, for SCHEDULED playback. Web Audio can place a note on
+// the sample; a JS timer cannot, and a sequencer driven by timers audibly wobbles. Everything
+// downstream already derives its timing from t0, so this is the only place it needs to know.
+export function playPatch(ctx, noise, dest, reverbInput, patch, onEnded, opts = {}) {
+  const t0 = opts.at != null ? opts.at : ctx.currentTime;
   const built = {};
 
   for (const node of patch.nodes) {
@@ -348,7 +408,10 @@ export function playPatch(ctx, noise, dest, reverbInput, patch, onEnded) {
   // (offline render contexts have startRendering(); they must play the full render length)
   if (typeof ctx.startRendering !== 'function') {
     const autoT = patchAutoStopTime(patch);
-    if (autoT != null) handle._auto = setTimeout(() => { handle.stop(0.05); if (onEnded) onEnded(); }, autoT * 1000);
+    // Count the auto-stop from the note's OWN start, not from now — a note scheduled a beat ahead
+    // would otherwise be torn down a beat early, and at speed that clips the front off every hit.
+    if (autoT != null) handle._auto = setTimeout(() => { handle.stop(0.05); if (onEnded) onEnded(); },
+                                                 Math.max(0, autoT + (t0 - ctx.currentTime)) * 1000);
   }
   return handle;
 }
