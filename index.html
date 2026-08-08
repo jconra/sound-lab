@@ -66,7 +66,10 @@
     #grid td.on.d { background: #6ab7ff; }          /* percussion reads differently from pitched */
     #grid td.play { box-shadow: inset 0 0 0 1px #ff8a3d; }
     #grid td.head { background: #123; }
-    .mfoot { margin-top: 7px; font-size: 10px; color: #4d7f8f; line-height: 1.5; }
+    .mfoot { margin-top: 7px; font-size: 10px; color: #4d7f8f; line-height: 1.6; }
+    .mfoot .pbtn { background:#07141b; color:#7fc; border:1px solid #16505f; font-family:inherit;
+      font-size:10px; padding:1px 6px; margin-right:3px; cursor:pointer; }
+    .mfoot .pbtn[aria-pressed="true"] { background:#1d2c3d; border-color:#ffd24a; color:#ffd24a; }
   </style>
 </head>
 <body>
@@ -364,18 +367,31 @@
           gridEl.querySelectorAll(`td[data-s="${step}"]`).forEach(c => c.classList.add('play'));
         };
         seq.onEnd = () => { document.getElementById('mnote').textContent = 'done'; };
+        // Follow the arrangement live, so the grid always shows the block you are hearing.
+        seq.onPart = (name) => { const sg = SONGS[songSel.value];
+          if (sg.parts && name && name !== shownPart) { shownPart = name; drawGrid(sg); }
+          document.getElementById('mnote').textContent = 'playing · block ' + name; };
       }
       return seq;
     }
 
+    // Which block of a chained song the grid is showing. The chain is the arrangement; the grid
+    // can only draw one block at a time, so name it and let the buttons step through.
+    let shownPart = null;
+    function partNames(song) {
+      return song.parts ? Object.keys(song.parts) : ['_'];
+    }
     function drawGrid(song) {
+      const names = partNames(song);
+      if (!shownPart || !names.includes(shownPart)) shownPart = names[0];
+      const tracks = song.parts ? song.parts[shownPart].tracks : song.tracks;
       const total = song.bars * song.beats * song.div;
       let h = '<table><tr><th class="trk"></th>';
       for (let s = 0; s < total; s++)
         h += `<td class="head ${s % (song.beats * song.div) === 0 ? 'bar' : s % song.div === 0 ? 'beat' : ''}">${s % song.div === 0 ? (s / song.div) % song.beats + 1 : ''}</td>`;
       h += '</tr>';
-      for (const tr of song.tracks) {
-        const perc = tr.inst === 'SNARE' || tr.inst === 'DRUM';
+      for (const tr of tracks) {
+        const perc = tr.inst === 'SNARE' || tr.inst === 'DRUM' || tr.inst === 'HAT';
         h += `<tr><th class="trk">${tr.inst}</th>`;
         // A note occupies its whole length, so a held bugle note reads as a bar and not a dot.
         const on = new Array(total).fill(null);
@@ -390,10 +406,20 @@
       }
       gridEl.innerHTML = h + '</table>';
       const beats = song.bars * song.beats;
-      document.getElementById('mfoot').textContent =
-        `${song.bpm} BPM · ${song.bars} bars · ${song.tracks.length} tracks · ${(beats * 60 / song.bpm).toFixed(1)}s`
+      // The chain IS the song's shape, so show it: a bracketed slot is a pool that picks fresh
+      // every time round, which is where the variation comes from.
+      const chain = (song.chain || names).map(c => Array.isArray(c) ? '[' + c.join('/') + ']' : c).join(' → ');
+      const picker = names.length > 1
+        ? 'BLOCK ' + names.map(n => `<button class="pbtn" data-p="${n}" aria-pressed="${n === shownPart}">${n}</button>`).join('') + ' &nbsp; '
+        : '';
+      document.getElementById('mfoot').innerHTML =
+        picker + `${song.bpm} BPM · ${song.bars} bar${song.bars > 1 ? 's' : ''} a block · ${tracks.length} tracks · `
+        + `block = ${(beats * 60 / song.bpm).toFixed(1)}s`
         + (song.loop ? ' · loops' : ' · plays once (a sting)')
-        + ' — gold = pitched, blue = percussion. Songs are authored in seq.js.';
+        + (song.chain ? `<br>CHAIN ${chain}` : '')
+        + ' — gold = pitched, blue = percussion. Authored in seq.js.';
+      document.querySelectorAll('#mfoot .pbtn').forEach(b =>
+        b.addEventListener('click', () => { shownPart = b.dataset.p; drawGrid(song); }));
     }
 
     function showMusic(on) {
@@ -404,6 +430,7 @@
     document.getElementById('musicbtn').addEventListener('click', () => showMusic(panel.style.display !== 'block'));
     document.getElementById('mclose').addEventListener('click', () => showMusic(false));
     songSel.addEventListener('change', () => {
+      shownPart = null;
       drawGrid(SONGS[songSel.value]);
       if (seq && seq.playing) seq.setSong(SONGS[songSel.value]);
     });
