@@ -42,7 +42,7 @@ const BUGLE = {
     { id: 'f', type: 'filter', ftype: 'lowpass', freq: 900, freqPeak: 4200, freqEnd: 2100, attack: 0.06, dur: 0.5, Q: 2.2 },
     { id: 's', type: 'shaper', grit: 0.16 },
     { id: 'r', type: 'send', gain: 0.22 },
-    { id: 'out', type: 'out', gain: 0.085 },
+    { id: 'out', type: 'out', gain: 1.256 },
   ],
   cables: [
     { from: 'o', to: 'v' }, { from: 'e', to: 'v', port: 'gain' },
@@ -60,7 +60,7 @@ const HORN = {
     { id: 'v', type: 'gain', gain: 0 },
     { id: 'f', type: 'filter', ftype: 'lowpass', freq: 420, freqPeak: 1500, freqEnd: 900, attack: 0.12, dur: 0.7, Q: 1.4 },
     { id: 'r', type: 'send', gain: 0.3 },
-    { id: 'out', type: 'out', gain: 0.055 },
+    { id: 'out', type: 'out', gain: 0.295 },
   ],
   cables: [
     { from: 'o', to: 'v' }, { from: 'e', to: 'v', port: 'gain' },
@@ -75,14 +75,12 @@ const BASS = {
     { id: 'o', type: 'osc', wave: 'square', voices: 2, detune: 5, freq: C3 / 2, level: 0.5 },
     { id: 'e', type: 'env', peak: 1, attack: 0.006, decay: 0.11, sustain: 0.65, release: 0.09 },
     { id: 'v', type: 'gain', gain: 0 },
-    // STATIC CUTOFF, deliberately — do not add freqEnd/freqPeak here without re-measuring.
-    // An automated cutoff on this patch renders ~900x louder than a fixed one at the SAME
-    // frequency: 0.13 peak static, 116 with `freqEnd: 190, glide: 0.25`. It is not the sweep
-    // (freqEnd == freq still blows up), not resonance (Q 0.1 still blows up), and it is direction-
-    // dependent (starting at 190 and rising to 300 is fine). Something in bFilter's automated
-    // branch goes unstable for this combination and it has not been run to ground yet.
-    { id: 'f', type: 'filter', ftype: 'lowpass', freq: 260, Q: 3.5 },
-    { id: 'out', type: 'out', gain: 0.5 },
+    // The cutoff drops a little across each note, which is what gives the bass its shape. This
+    // once rendered ~900x too loud and the filter took the blame; the fault was voicePatch
+    // inventing `freqPeak: 0` and pushing bFilter into its three-point sweep, which then ramped
+    // the cutoff to 0 Hz. Fixed at source — see the note on scale() in patch.js.
+    { id: 'f', type: 'filter', ftype: 'lowpass', freq: 300, freqEnd: 190, glide: 0.25, Q: 3.5 },
+    { id: 'out', type: 'out', gain: 0.218 },
   ],
   cables: [
     { from: 'o', to: 'v' }, { from: 'e', to: 'v', port: 'gain' },
@@ -101,7 +99,7 @@ const SNARE = {
     { id: 'v', type: 'gain', gain: 0 },
     { id: 'f', type: 'filter', ftype: 'bandpass', freq: 1900, Q: 0.9 },
     { id: 'r', type: 'send', gain: 0.16 },
-    { id: 'out', type: 'out', gain: 0.06 },
+    { id: 'out', type: 'out', gain: 0.581 },
   ],
   cables: [
     { from: 'n', to: 'v' }, { from: 'e', to: 'v', port: 'gain' },
@@ -118,7 +116,7 @@ const DRUM = {
     { id: 'p', type: 'env', peak: 1, attack: 0.001, decay: 0.07, sustain: 0, release: 0.02 },
     { id: 'e', type: 'env', peak: 1, attack: 0.002, decay: 0.34, sustain: 0, release: 0.05 },
     { id: 'v', type: 'gain', gain: 0 },
-    { id: 'out', type: 'out', gain: 0.11 },
+    { id: 'out', type: 'out', gain: 0.427 },
   ],
   cables: [
     { from: 'p', to: 'o', port: 'freq' },
@@ -136,7 +134,7 @@ const PLUCK = {
     { id: 'v', type: 'gain', gain: 0 },
     { id: 'd', type: 'delay', time: 0.28, feedback: 0.35, tone: 2600, wet: 0.5 },
     { id: 'r', type: 'send', gain: 0.3 },
-    { id: 'out', type: 'out', gain: 0.05 },
+    { id: 'out', type: 'out', gain: 0.3 },
   ],
   cables: [
     { from: 'o', to: 'v' }, { from: 'e', to: 'v', port: 'gain' },
@@ -156,7 +154,7 @@ const GUITAR = {
     { id: 's', type: 'shaper', grit: 0.82 },
     { id: 'f', type: 'filter', ftype: 'lowpass', freq: 2400, Q: 0.9 },
     { id: 'r', type: 'send', gain: 0.12 },
-    { id: 'out', type: 'out', gain: 0.5 },
+    { id: 'out', type: 'out', gain: 1.339 },
   ],
   cables: [
     { from: 'o', to: 'v' }, { from: 'e', to: 'v', port: 'gain' },
@@ -176,7 +174,7 @@ const LEAD = {
     { id: 'f', type: 'filter', ftype: 'lowpass', freq: 3000, Q: 1.1 },
     { id: 'd', type: 'delay', time: 0.34, feedback: 0.3, tone: 3200, wet: 0.4 },
     { id: 'r', type: 'send', gain: 0.35 },
-    { id: 'out', type: 'out', gain: 0.5 },
+    { id: 'out', type: 'out', gain: 0.752 },
   ],
   cables: [
     { from: 'o', to: 'v' }, { from: 'e', to: 'v', port: 'gain' },
@@ -195,7 +193,7 @@ const ARP = {
     { id: 'v', type: 'gain', gain: 0 },
     { id: 'f', type: 'filter', ftype: 'lowpass', freq: 1700, Q: 7 },
     { id: 'd', type: 'delay', time: 0.19, feedback: 0.28, tone: 4000, wet: 0.34 },
-    { id: 'out', type: 'out', gain: 0.5 },
+    { id: 'out', type: 'out', gain: 0.288 },
   ],
   cables: [
     { from: 'o', to: 'v' }, { from: 'e', to: 'v', port: 'gain' },
@@ -211,7 +209,7 @@ const HAT = {
     { id: 'e', type: 'env', peak: 1, attack: 0.001, decay: 0.035, sustain: 0, release: 0.02 },
     { id: 'v', type: 'gain', gain: 0 },
     { id: 'f', type: 'filter', ftype: 'highpass', freq: 6500, Q: 0.8 },
-    { id: 'out', type: 'out', gain: 0.5 },
+    { id: 'out', type: 'out', gain: 0.117 },
   ],
   cables: [
     { from: 'n', to: 'v' }, { from: 'e', to: 'v', port: 'gain' },
@@ -262,7 +260,7 @@ export const SONGS = {
   // happening. Triplet pickup, a climb through the bugle's harmonics, and a held note at the top
   // with the gallop under it. Fast, short, and gone before it outstays its welcome.
   CHARGE: {
-    name: 'CHARGE — the flag is taken', bpm: 168, bars: 2, beats: 4, div: 4, loop: false,
+    name: 'CHARGE — the flag is taken', bpm: 168, bars: 2, beats: 4, div: 4, loop: false, gain: 0.8,
     tracks: [
       { inst: 'BUGLE', vol: 1.0, notes: [
         // pickup: three quick notes on the 5th, then up to the octave
@@ -391,7 +389,7 @@ SONGS.LURCHER = {
 // VALKYRIE — the anthem. Slow chords underneath, a lead that swells instead of starting, and a
 // key lift in the last part so it keeps climbing. Two bars a part.
 SONGS.VALKYRIE = {
-  name: 'VALKYRIE — the anthem', bpm: 124, bars: 2, beats: 4, div: 4, loop: true,
+  name: 'VALKYRIE — the anthem', bpm: 124, bars: 2, beats: 4, div: 4, loop: true, gain: 0.75,
   chain: ['A', 'B', ['B', 'C'], 'C'],
   parts: {
     A: { tracks: [
@@ -456,7 +454,7 @@ SONGS.FIREBRAT = {
 // Power chords: root and fifth only, which is what distortion actually tolerates — thirds through
 // heavy grit turn to mud, and that is why rock plays fifths.
 SONGS.JOTUN = {
-  name: 'JOTUN — rolling fortress', bpm: 92, bars: 2, beats: 4, div: 4, loop: true,
+  name: 'JOTUN — rolling fortress', bpm: 92, bars: 2, beats: 4, div: 4, loop: true, gain: 0.72,
   chain: ['A', 'A', ['B', 'C'], 'A'],
   parts: {
     A: { tracks: [
@@ -612,7 +610,11 @@ export class Sequencer {
         const [, semi, lenSteps, vel] = n;
         const p = voicePatch(inst, {
           semi,
-          gain: (vel ?? 1) * (tr.vol ?? 1),
+          // Song gain is the LAST stage on purpose. Instrument levels are balanced globally, by
+          // musical role, so the same patch sounds the same in every song; a dense arrangement
+          // simply sums louder than a sparse one, which is true of real music too. `gain` trims
+          // the few that stack high enough to clip, and nothing else.
+          gain: (vel ?? 1) * (tr.vol ?? 1) * (this.song.gain ?? 1),
           len: Math.max(0.05, (lenSteps ?? 1) * this.stepDur),
         });
         try {

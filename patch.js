@@ -316,11 +316,22 @@ export function patchIsFinite(patch) { return patchAutoStopTime(patch) != null; 
 export function voicePatch(patch, { semi = 0, gain = 1, len = null } = {}) {
   const r = Math.pow(2, semi / 12);
   if (r === 1 && gain === 1 && len == null) return patch;
+  // SCALE WHAT IS THERE; DO NOT INVENT WHAT IS NOT. Writing `(n.freqPeak ?? 0) * r` looks like a
+  // harmless default and is not: it turns an ABSENT freqPeak into a PRESENT zero, and bFilter
+  // chooses its behaviour by presence — `freqPeak != null` is true for 0, so a patch with a plain
+  // static cutoff silently got the three-point sweep branch and ramped its cutoff to 0 Hz. A
+  // lowpass collapsing to zero is degenerate, and when the ramp brought it back up the stored
+  // energy came out all at once: BASS rendered at 116 peak against 0.13 for every other
+  // instrument, ~900x. It looked like a Web Audio filter bug for exactly as long as it took to
+  // print what this function actually returns.
+  const scale = (n, keys) => {
+    const o = { ...n };
+    for (const k of keys) if (o[k] != null) o[k] = o[k] * r;
+    return o;
+  };
   const nodes = patch.nodes.map(n => {
-    if (n.type === 'osc')
-      return { ...n, freq: (n.freq ?? 440) * r, freqMod: (n.freqMod ?? 0) * r };
-    if (n.type === 'filter')
-      return { ...n, freq: (n.freq ?? 800) * r, freqPeak: (n.freqPeak ?? 0) * r, freqEnd: (n.freqEnd ?? 0) * r };
+    if (n.type === 'osc') return scale(n, ['freq', 'freqMod']);
+    if (n.type === 'filter') return scale(n, ['freq', 'freqPeak', 'freqEnd']);
     if (n.type === 'out')
       return { ...n, gain: (n.gain ?? 1) * gain };
     if (n.type === 'env' && len != null && (n.sustain ?? 0) > 0.001)
