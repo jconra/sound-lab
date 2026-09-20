@@ -1,0 +1,1082 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>createPeriodicWave</title>
+<style>
+body {color:white; background-color: transparent; overflow:hidden;}
+button {height:50px; width:200px; font-size:20px; background-color:#CCCCCC;}
+#waveContainer {height:33%; width:475px; overflow-y:scroll; position:fixed; bottom:0px; left:50%; margin-left:-237px}
+#start {height:200px; width:400px; font-size:50px; padding:20px; margin:auto;}
+#options {font-size:15px; display:none; grid-template-columns: 1fr 1fr 1fr; position:fixed; top:0px; left:0px;}
+#startup {width:100%; position:fixed; height:100%; z-index:100; background-color:#232F3E; text-align:center; top:0px; left:0px;}
+#title {font-size:45px; width:680px;}
+h2 {font-size:30px; padding:15px;}
+#waveC {position:fixed; top:0px; left:0px; z-index:-50;}
+.border {border: 1px solid #555; display:inline-block;}
+#sequencer {width:100%; top:0px; left:0px; z-index:100; overflow-y:scroll; overflow-x:scroll;}
+#controls {position:fixed; top:0px; width:100%; background-color:#112;}
+#loadJson {position:fixed; width:70%; height:70%; left:15%; top:15%; z-index:50;}
+#blur {background-color: rgba(30,30,30,0.8);}
+#envelopeDock {position:fixed; top:0px; right:0px; width:400px;}
+#menu {position:fixed; top:0px; width:100%; height:30px; font-size:25px;}
+#info {position:fixed; top:60%; left:50%; width:400px; height:100px; margin-left:-200px;}
+#lenButtons {position:fixed; top:0px; right:0px; height:20px; width:240px;}
+#import {position:fixed; bottom:0px; left:45%; width:10%;}
+.noteButton {height:20px; width:40px; font-size:10px; white-space:nowrap;}
+.full {position:fixed; width:100%; height:100%; left:0px; top:0px; z-index:40;}
+.textBtn {cursor:pointer; font-size:20px; display:inline-block; margin:10px;}
+.envelope {height:80px; width:120px; display:inline-block;}
+.waveBtnCanvas {top:18px; position:relative;}
+.menuBtn {background-color:#112; color:white; cursor:pointer; border-radius:10px; padding:5px;}
+.h150 {height:150px;}
+.w30 {width:30px;}
+.w100 {width:100px;}
+.w225 {width:225px;}
+.left {text-align:left;}
+.topGap10 {margin-top:10px;}
+.topGap30 {margin-top:30px;}
+.dark {background-color:#112; color:white;}
+.pointer {cursor:pointer;}
+.hide {display:none;}
+</style>
+</head>
+<body>
+<canvas id="waveC"></canvas>
+
+<div id="sequencer" class="full dark hide">
+  <canvas id="seqCanvas" class="topGap30"></canvas>
+  <div id="controls">
+    <div id="exit" class="textBtn" style="color:#FF0">Exit</div>
+    <div id="toggle" class="textBtn" style="color:#0F0">Play</div>
+    <label>Measures:</label>
+    <input type="text" id="measures" value="4" class="w30"/>
+    <label>BPM:</label>
+    <input type="text" id="bpm" value="128" class="w30"/>
+    <select id="soundSelect"></select>
+    <div id="lenButtons" value=2></div>
+  </div>
+</div>
+
+<div id="startup">
+  <div onclick="init()" id="start">
+    <h2 id="clickHere" class="dark pointer">Click To Start</h2>
+  </div>
+</div>
+
+
+<div id="blur" class="full hide">
+  <button onclick="loadSequence(1)">Axel F</button>
+  <button onclick="loadSequence(2)">Song of Storms</button>
+  <textarea id="loadJson" class="dark"></textarea>
+  <button id="import" onclick="importSequence()">Import</button>
+</div>
+
+<div class="menu left">
+  <label id="seqButton" class="menuBtn">Sequencer</label>
+  <label id="loadJsonBtn" class="menuBtn">Load</label>
+  <label>Sounds: </label>
+  <select id="soundOptions" class="topGap10 w100">
+  </select>
+  <label id="newSound" class="pointer">New</label>
+</div>
+
+<div class="border w225 h150 left topGap10" style="z-index:30">
+  <div id="filterControls" class="hide">
+    <select id="filterType">
+      <option value="lowpass">Lowpass</option>
+      <option value="highpass">Highpass</option>
+      <option value="bandpass">Bandpass</option>
+    </select>
+  </div>
+  <div id="fmOscControls" class="hide">
+    <label>FM Depth</label>
+    <input type="range" id="fmGain" min=0 max=5000 value="200"/><br>
+  </div>
+  <div id="amOscControls" class="hide">
+    <label>AM Depth</label>
+    <input type="range" id="amGain" min=0 max=1 step=0.1 value="0.5"/><br>
+  </div>
+  <label>Detune</label>
+  <input type="range" id="detune" min=0 max=100 step=1 value="15"/><br>
+  <label>Volume</label>
+  <input type="range" id="volume" min=0 max=100 step=1 value="10"/><br>
+  <label>Octave</label>
+  <input type="range" id="octave" min=-3 max=3 step=1 value="0"/><br>
+  <label>Length</label>
+  <input type="range" id="length" min=0 max=5 step=1 value="3"/><br>
+  <input type="radio" id="waveVis" name="vis" checked>
+  <label>Wave</label><br>
+  <input type="radio" id="freqVis" name="vis">
+  <label>Freq</label><br>
+  <label id="freq">Freq:</label>
+</div>
+
+<div id="envelopeDock">
+  <div id="mainGain" class="envelope"></div>
+  <div id="mainOsc" class="envelope"></div>
+  <div id="filter" class="envelope"></div>
+  <div id="fmOsc" class="envelope"></div>
+  <div id="amOsc" class="envelope"></div>
+</div>
+
+<div id="info"></div>
+
+<div id="waveContainer"></div>
+<script>
+/*
+Todo:
+- Implement Filter (done)
+- Implement Oscilator LFO (Frequency Modulation) (done)
+- Implement Oscilator envelope (done)
+- Implement Gain LFO (Amplitude Modulation) (done)
+- Encode/Decode output/input JSON (done)
+- Frequency Analyser (done)
+- Touch Controls (done)
+- Preset sequences (done)
+- Commenting/Auditing Code
+- Implement Filter envelope (done)
+*/
+
+let selectedSound = "Sine";
+const keys = {};
+const noteLookup = {};
+const waveC = getEle("waveC");
+const ctxC = waveC.getContext("2d");
+
+const soundWave = new Uint8Array(1024);
+
+const seqC = getEle("seqCanvas");
+const ctxS = seqC.getContext("2d");
+let cw = waveC.width = window.innerWidth;
+let ch = waveC.height = window.innerHeight;
+
+let seqZoom = 30;
+const sw = seqC.width = 570;
+const sh = seqC.height = 72*seqZoom;
+let sequence = {};
+let sounds = {};
+let envelopes = {};
+let seqPointer = {down:false, lock:[]};
+let sequencePlaying = 0;
+const activeSounds = [];
+let count = 0;
+
+const notes = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+const colors = ["#0F0", "#F00", "#00F", "#FF0", "#0FF", "#F0F", "#8F8", "#F88", "#88F"];
+const rampTypes = ["set", "linear", "exponential"];
+const noteLengths = ["Thirty-Second","Sixteenth","Eighth","Quarter","Half","Whole"];
+const controlIds = ["filterType", "detune", "octave", "length", "volume", "fmGain", "amGain"];
+
+//Init gets called when the starting button is clicked. The button is required since AudioContext can't start until there is user interaction.
+function init() {
+  window.audioCtx = new AudioContext();
+  window.waveAnalyser = audioCtx.createAnalyser();
+  window.volume = audioCtx.createGain();
+  waveAnalyser.connect(volume);
+  volume.connect(audioCtx.destination);
+  getEle("startup").style.display = 'none';
+  buildNoteLookup();
+  generateWaveBoxes();
+  createLenButtons();
+  getEle("sequencer").style.display = "block";
+  getEle("sequencer").scrollTop = 750;
+  getEle("sequencer").style.display = "none";
+  getEle("start").style.display = "none";
+  createCanvasEnvelopes();
+  newSound();
+  animate();
+}
+
+//CanvasEnvelope creates a 2D graph that allows the points to be moved, added, or removed. The points represent frequency or Gain values on the y-axis and time on the x-axis
+class canvasEnvelope {
+  constructor (parentName, title, ramps, multiplier, enabled) {
+    this.parent = getEle(parentName);
+    this.enabled = enabled;
+    this.title = title;
+    this.multiplier = multiplier;
+    this.canvas = document.createElement("canvas");
+    this.canvas.style.border = "1px solid white";
+    this.parent.style.color = (this.enabled)? "lime":"red";
+    this.ctx = this.canvas.getContext("2d");
+    this.canvas.width = this.parent.getBoundingClientRect().width;
+    this.canvas.height = this.parent.getBoundingClientRect().height;
+    this.label = document.createElement('label');
+    this.parent.appendChild(this.label);
+    this.parent.appendChild(this.canvas);
+    this.ramps = [];
+    for (let ramp of ramps) 
+      this.ramps.push({type:ramp[0],value:ramp[1],time:ramp[2]});
+    this.draw();
+    this.label.innerHTML = this.title;
+    this.label.style.cursor = "pointer";
+    this.label.onclick = function() {
+      toggle(this.parentElement.id);
+      saveSound();
+    };
+  }
+  draw() {
+    let w = this.canvas.width;
+    let h = this.canvas.height;
+    let r = w * 0.04;
+    this.ctx.lineWidth=2;
+    this.ctx.fillStyle = "#232F3E";
+    this.ctx.fillRect(0, 0, w, h);
+    this.ctx.fillStyle = "white";
+    this.ctx.strokeStyle = "lime";
+    line(this.ctx, {x:w-10,y:7}, {x:w,y:7});
+    line(this.ctx, {x:w-5,y:2}, {x:w-5,y:12});
+    this.ctx.strokeStyle = "red";
+    line(this.ctx, {x:w-10,y:20}, {x:w,y:20});
+    this.ctx.strokeStyle = "white";
+    circle(this.ctx, {x:this.ramps[0].time*w, y:h-this.ramps[0].value*h}, r);
+    for (let i=1; i<this.ramps.length; i++) {
+      let p1 = {x:this.ramps[i-1].time*w, y:h-this.ramps[i-1].value*h};
+      let p2 = {x:this.ramps[i].time*w, y:h-this.ramps[i].value*h};
+      if (this.ramps[i].type == 1) line(this.ctx, p1, p2);
+      else if (this.ramps[i].type == 2) exponentialLine(this.ctx, p1, p2);
+      else line(this.ctx, p1, {x:p2.x, y:p1.y});
+      circle(this.ctx, {x:this.ramps[i].time*w, y:h-this.ramps[i].value*h}, r);
+    }
+  }
+}
+
+function toggle(node) {
+  let canEnv = envelopes[node];
+  canEnv.enabled = !(canEnv.enabled);
+  canEnv.parent.style.color = (canEnv.enabled)? "lime":"red";
+  let controls = getEle(node+"Controls");
+  if (controls != null)
+    controls.style.display = (canEnv.enabled)? "block":"none";
+}
+
+function getOffset(e) {
+  const rect = e.target.getBoundingClientRect();
+  const p = ("touches" in e)? e.changedTouches[0]:e;
+  return {x:p.clientX-rect.left, y:p.clientY-rect.top};
+}
+
+function addCanvasListeners(can) {
+  can.canvas.addEventListener("mousemove", canvasMovement);
+  can.canvas.addEventListener("mousedown", function(e) {can.e = e});
+  can.canvas.addEventListener("mouseup", canvasUp);
+  can.canvas.addEventListener("touchmove", function(e) {
+    e.preventDefault();
+    canvasMovement(e)});
+  can.canvas.addEventListener("touchstart", function(e) {can.e = e});
+  can.canvas.addEventListener("touchend", function(e) {
+    canvasUp(e)});
+  let w = can.canvas.width;
+  let h = can.canvas.height;
+  function canvasMovement(e) {
+    let cursor = "default";
+    const p1 = getOffset(e);
+    const result = overPointOrLine(can, p1, w, h);
+    if (result.length == 1) {
+      cursor = "move";
+      if ("e" in can) moveCanvasPoint(can, p1, result[0], w, h);
+    } else if (result.length == 2)
+      cursor = "pointer";
+    if (p1.x > w-10 && p1.y < 30)
+      cursor = "pointer";
+    can.canvas.style.cursor = cursor;
+    saveSound();
+  }
+  function canvasUp(e) {
+    delete(can.e)
+    const p1 = getOffset(e);
+    let result = overPointOrLine(can, p1, can.canvas.width, can.canvas.height);
+    if (e.offsetX > w-10 && e.offsetY < 30) {
+      if (e.offsetY < 15) {
+        can.ramps[can.ramps.length-1].time -= 0.1;
+        can.ramps.push({type:1, value:0.001, time:1});
+      } else {
+        if (can.ramps.length > 2) {
+          can.ramps.splice(can.ramps.length-1, 1);
+          can.ramps[can.ramps.length-1].time = 1; 
+        }
+      }
+    } else if (result.length == 2) can.ramps[result[1]].type = (can.ramps[result[1]].type + 1)%3;
+    can.draw();
+  };
+}
+
+function moveCanvasPoint(can, p, i, w, h) {
+  can.ramps[i].time = rm(p.x/w);
+  if (i == 0) can.ramps[i].time = 0;
+  else if (i == can.ramps.length-1) can.ramps[i].time=1;
+  can.ramps[i].value = rm((h-p.y)/h);
+  let info = can.title+" - Time: "+can.ramps[i].time+", Value: ";
+  getEle("info").innerHTML = info+(rm(can.ramps[i].value*can.multiplier));
+  can.ramps.sort((a, b) => (a.time > b.time)? 1:-1);
+  can.draw();
+}
+
+function rm(n,t=1000) {return Math.floor(n*t)/t}
+
+function overPointOrLine(can, p, w, h) {
+  for (let i=0; i<can.ramps.length; i++) {
+    let p2 = {x:can.ramps[i].time*w,y:h-can.ramps[i].value*h};
+    let d = dist(p, p2);
+    if (d<10) return [i];
+    else if (i != can.ramps.length-1) {
+      let p3 = {x:can.ramps[i+1].time*w,y:h-can.ramps[i+1].value*h};
+      d = dist(p, {x:(p2.x+p3.x)/2, y:(p2.y+p3.y)/2});
+      if (d<10) return [i, i+1];
+    }
+  }
+  return [];
+}
+
+function createCanvasEnvelopes() {
+  let env1 = [[0,0,0],[1, 0.9, 0.2],[1,0.6,0.4],[1,0.6,0.8],[1,0.001,1]];
+  let env2 = [[0,1,0],[1,0,1]];
+  envelopes["mainGain"] = new canvasEnvelope("mainGain", "Gain Envelope", env1, 0.5, true);
+  envelopes["mainOsc"] = new canvasEnvelope("mainOsc","Oscilator Freq", env2, 2000, false);
+  envelopes["filter"] = new canvasEnvelope("filter","Filter Cutoff", env2, 2000, false);
+  envelopes["fmOsc"] = new canvasEnvelope("fmOsc","FM Envelope", env2, 100, false);
+  envelopes["amOsc"] = new canvasEnvelope("amOsc","AM Envelope", env2, 100, false);
+  for (let env in envelopes) addCanvasListeners(envelopes[env]);
+}
+
+function animate() {
+  window.requestAnimationFrame(animate);
+  drawBackgroundWave();
+  if (sequencePlaying > 0) drawSequence();
+}
+
+window.addEventListener('resize', () => {
+let cw = waveC.width = window.innerWidth;
+let ch = waveC.height = window.innerHeight;
+  
+});
+
+function drawBackgroundWave() {
+  let inv = 1;
+  if (getEle("waveVis").checked)
+    waveAnalyser.getByteTimeDomainData(soundWave);
+  else waveAnalyser.getByteFrequencyData(soundWave);
+  ctxC.fillStyle = "#232F3E";
+  ctxC.fillRect(0,0,cw,ch);
+  ctxC.lineWidth = 2;
+  ctxC.strokeStyle = "white";
+  ctxC.beginPath();
+  const lineH = 150 + window.innerHeight/6;
+  ctxC.moveTo(0, soundWave[0]+lineH);
+  for (let i = 1; i < soundWave.length; i++) {
+    ctxC.lineTo(i*(cw/soundWave.length), inv*soundWave[i]+lineH);
+  }
+  ctxC.stroke();
+}
+
+function buildNoteLookup() {
+  for (let i=0; i<80; i++) {
+    let freq = Math.floor(27.5*Math.pow(Math.pow(2,1/12),i+3)+0.5);
+    noteLookup[freq] = notes[i%12]+(Math.floor(i/12)+1);
+  }
+}
+
+function generateWaveBoxes() {
+  const box = getEle("waveContainer");
+  for (soundName of Object.keys(customWaves)) {
+    let button = document.createElement('button');
+    button.id = soundName;
+    button.innerHTML = soundName;
+    button.setAttribute("onclick", "play('"+soundName+"')");
+    box.appendChild(button);
+    let sound = customWaves[soundName];
+    sound.name = soundName;
+    sound.canvas = document.createElement("canvas");
+    sound.canvas.className = "waveBtnCanvas";
+	  sound.ctx = sound.canvas.getContext("2d");
+	  sound.canvas.width = 256;
+	  sound.canvas.height = 50;
+    sound.dataArray = new Uint8Array(256);
+    box.appendChild(sound.canvas);
+    captureWaveForButtons(sound);
+    box.appendChild(document.createElement('br'));
+  }
+}
+
+function captureWaveForButtons(sound) {
+  const analyser = audioCtx.createAnalyser();
+  let osc;
+  if (sound.name == "Noise") {
+    osc = new Noise({});
+    osc.node.connect(analyser);
+    osc.node.start();
+  } else {
+    osc = audioCtx.createOscillator();
+    osc.frequency.value = 300
+    analyser.fftSize = 512;
+    const wave = audioCtx.createPeriodicWave(sound.real,sound.imag);
+    osc.connect(analyser);
+    osc.setPeriodicWave(wave);
+    osc.start(audioCtx.currentTime);
+  }
+  const intervalId = setInterval(() => {
+    analyser.getByteTimeDomainData(sound.dataArray);
+    if (sound.dataArray[0] != 128) {
+      osc.stop();
+      drawWaveForButtons(sound)
+      clearInterval(intervalId);
+    }
+  }, 30);  
+}
+  
+function drawWaveForButtons(sound) {
+  sound.ctx.fillStyle = "#232F3E";
+  sound.ctx.fillRect(0,0,256,50);
+  sound.ctx.lineWidth = 2;
+  sound.ctx.strokeStyle = "white";
+  sound.ctx.beginPath();
+  sound.ctx.moveTo(0, sound.dataArray[0] * 0.195);
+  for (let i = 0; i < 256; i++) {
+    sound.ctx.lineTo(i, sound.dataArray[i] * 0.195);
+  }
+  sound.ctx.stroke();
+}
+
+function btnColors(oldBtn, newBtn) {
+  getEle(oldBtn).style.backgroundColor="#CCCCCC";
+  getEle(newBtn).style.backgroundColor="#999999";
+}
+
+function lookupFreq(key) {
+  let lookup = {'ShiftLeft': 131,'KeyZ': 139,'KeyX': 147,'KeyC': 156,'KeyV': 165,'KeyB': 175,'KeyN': 185,'KeyM': 196,'Comma': 208,'Period':220,'Slash':233,'ShiftRight':247,'KeyA':262,'KeyS':277,'KeyD':294,'KeyF':311,'KeyG':330,'KeyH':349,'KeyJ':370,'KeyK':392,'KeyL':415,'Semicolon':440,"Quote":466,'Enter':494,'KeyQ':523,'KeyW':554,'KeyE':587,'KeyR':622,'KeyT':659,'KeyY':698,'KeyU':740,'KeyI':784,'KeyO':831,'KeyP':880,'BracketLeft':932,'BracketRight':988}
+  if (key in lookup) return lookup[key];
+  return 0;
+}
+
+window.addEventListener('keydown', function (e) {
+  if (e.code in keys == false) keys[e.code] = play(selectedSound, e.code);
+});
+
+window.addEventListener('keyup', function (e) {
+  if (e.code in keys) {
+    if (keys[e.code] != undefined) keys[e.code].stop();
+    delete keys[e.code];
+  }
+});
+
+getEle("seqButton").onclick = function () {
+  getEle("sequencer").style.display = "block";
+  getEle("soundSelect").innerHTML = getSoundOptions();
+  drawSequence();
+};
+
+function getSoundOptions() {
+  let options = '';
+  for (let sound of Object.keys(sounds)) {
+    options+='<option id="'+sound+'">'+sound+'</option>';
+  }
+  return options;
+}
+
+for (let id of controlIds) {
+  getEle(id).oninput = function() {
+    let value = getEle(id).value;
+    sounds[getEle("soundOptions").value][id]=value;
+    if (id == "length") value = noteLengths[value];
+    getEle("info").innerHTML = id +": "+ value;
+    if (id == "volume") volume.gain.value = value/100;
+  }
+}
+
+getEle("newSound").onclick = function(){newSound()};
+
+function newSound() {
+  const color = colors[Object.keys(sounds).length%9];
+  const soundName = "Sound"+(Object.keys(sounds).length+1);
+  sounds[soundName] = {color:color};
+  getEle("soundOptions").innerHTML = getSoundOptions();
+  getEle("soundOptions").selectedIndex = Object.keys(sounds).length-1;
+  saveSound();
+}
+
+function saveSound() {
+  const sound = sounds[getEle("soundOptions").value];
+  sound.wave = selectedSound;
+  for (let id of controlIds) {sound[id] = getEle(id).value;}
+  sound["envelopes"] = {};
+  for (let envName in envelopes) {
+    if (envelopes[envName].enabled) {
+      let envText = JSON.stringify(envelopes[envName].ramps);
+      sound.envelopes[envName] = JSON.parse(envText);      
+      for (let ramp of sound.envelopes[envName])
+        ramp.value *= envelopes[envName].multiplier;
+    }
+  }
+  sound.connections = getConnections();
+}
+
+function getConnections() {
+  const retVal = {};
+  retVal["mainOsc"] = "mainGain";
+  if (envelopes["filter"].enabled) {
+    retVal["mainGain"] = "filter";
+    retVal["filter"] = "output";
+  }
+  else retVal["mainGain"] = "output";
+  if (envelopes["fmOsc"].enabled) {
+    retVal["fmOsc"] = "fmGain";
+    retVal["fmGain"] = "mainOsc.frequency";
+  }
+  if (envelopes["amOsc"].enabled) {
+    retVal["amOsc"] = "amGain";
+    retVal["amGain"] = "mainGain.gain";
+  }
+  return retVal;
+}
+
+getEle("soundOptions").onchange = function () {setSettings()};
+
+function setSettings() {
+  const soundName = getEle("soundOptions").value;
+  let sound = sounds[soundName];
+  btnColors(selectedSound, sound.wave);
+  selectedSound = sound.wave;
+  for (let id of controlIds) {getEle(id).value = sound[id];}
+  setEnvelopes(sound);
+}
+
+function setEnvelopes(sound) {
+  for (let env in envelopes) {
+    if (envelopes[env].enabled) toggle(env);
+  }
+  for (let env in sound.envelopes) {
+    toggle(env);
+    let textRamps = JSON.stringify(sound.envelopes[env]);
+    envelopes[env].ramps = JSON.parse(textRamps);
+    for (let ramp of envelopes[env].ramps)
+      ramp.value /= envelopes[env].multiplier;
+    envelopes[env].draw();
+  }
+}
+
+getEle("loadJsonBtn").onclick = function () {exportSequence()};
+
+function exportSequence() {
+  getEle("blur").style.display = "block";
+  let seqNotes = [];
+  for (let i of Object.keys(sequence)) {
+    let note = notes[(71-i)%12]+(Math.floor((71-i)/12)+1);
+    for (let n of sequence[i]) {
+      seqNotes.push( {
+        note:note,
+        start:n[0]/seqZoom-3,
+        length:((n[1]/seqZoom-3)-(n[0]/seqZoom-3)),
+        sound:n[2]
+      } );
+    }
+  }
+  seqNotes.sort((a, b) => (a.start > b.start)? 1:-1);
+  let text = '{\n  "sounds": {\n';
+  for (let soundName of Object.keys(sounds)) {
+    let sound = sounds[soundName];
+    text += '    "'+soundName+'": {\n';
+    for (let p of Object.keys(sound)) {
+      if (p == "envelopes") {
+        text += '      "envelopes":{\n';
+        for (let envNames in sound[p]) {
+          text += '        "'+envNames+'": [\n';
+          for (let env of sound[p][envNames])
+            text+='          '+JSON.stringify(env)+',\n';
+          text += '        ],\n';
+        }
+        text += '      },\n';
+      } else if (p == "connections") {
+        text += '      "connections":{\n';
+        for (let connects in sound[p]) {
+          text+='        "'+connects+'":"'+sound[p][connects]+'",\n';
+        }
+        text += '      },\n';
+      } else text += '      "'+p+'":"'+sound[p]+'",\n';
+    }
+    text += '    },\n'
+  }
+  text += '  },\n  "sequence": [\n'
+  for (let sNote of seqNotes) {
+    text += '    {"start":'+sNote.start+', "length":'+sNote.length;
+    text += ', "note":"'+sNote.note+'", "sound":"'+sNote.sound+'"},\n';
+  }
+  text += '  ],\n  "bpm": '+getEle("bpm").value + ',\n';
+  text += '  "measures": '+getEle("measures").value;
+  getEle("loadJson").value = text + '\n}';
+}
+
+function importSequence() {
+  getEle("blur").style.display = "none";
+  try {
+    let text = getEle("loadJson").value.replace(/[\n ]/g,"");
+    let obj = JSON.parse(text.replace(/\,(?=\s*?[\}\]])/g,''));
+    if ("sounds" in obj) sounds = obj.sounds;
+    setSettings();
+    if ("sequence" in obj) {
+      sequence = {};
+      for (let s of obj.sequence) {
+        let row = notes.indexOf(s.note.substring(0,s.note.length-1));
+        row = 71-(row+12*(s.note[s.note.length-1]-1));
+        if (row in sequence == false) sequence[row] = [];
+        let index = sequence[row].length;
+        sequence[row].push([(s.start+3)*seqZoom,s.length*seqZoom,s.sound]);
+        sequence[row][index][1] += sequence[row][index][0];
+      }
+    }
+    if ("bpm" in obj) getEle("bpm").value = obj.bpm;
+    if ("measures" in obj) {
+      getEle("measures").value = obj.measures;
+      seqC.width = obj.measures * 4 * seqZoom + 3 * seqZoom;
+    }
+  } catch (e) {alert("Input didn't properly load!/n"+e);}
+  getEle("soundOptions").innerHTML = getSoundOptions();
+}
+
+getEle("exit").onclick = function () {
+  getEle("sequencer").style.display = "none";
+};
+
+getEle("toggle").onclick = function () {
+  let ele = getEle("toggle");
+  if (ele.innerHTML == "Play") {
+    sequencePlaying = audioCtx.currentTime;
+    ele.innerHTML = "Stop";
+    ele.style.color = "Red";
+    playSequence();
+  } else {
+    sequencePlaying = 0;
+    for (let sound of activeSounds) sound.stop(0);
+    activeSounds.splice(0,activeSounds.length);
+    ele.innerHTML = "Play";
+    ele.style.color = "Green";
+  }
+}
+
+class Oscillator {
+  constructor(wave, detune, frequency) {
+    this.node = audioCtx.createOscillator();
+    this.node.frequency.value = frequency;
+    this.node.detune.value = detune;
+    this.node.setPeriodicWave(getWave(wave));
+  }
+  play(time) {this.node.start(time);}
+  stop(time) {this.node.stop(time);}
+}
+
+class Gain {
+  constructor() {
+    this.node = audioCtx.createGain();
+  }
+}
+
+class Noise {
+  constructor() {
+    this.node = audioCtx.createBufferSource();
+    let buffer = audioCtx.createBuffer(1, 48000, 48000);
+    let output = buffer.getChannelData(0);
+    for (var i=0; i<48000; i++) {
+      output[i] = Math.random()*2-1;
+    }
+    this.node.buffer = buffer;
+  }
+  play(time) {this.node.start(time);}
+  stop(time) {this.node.stop(time);}
+}
+
+class Filter {
+  constructor(options) {
+    this.node = audioCtx.createBiquadFilter()
+    this.node.type = options.filterType;
+  }
+}
+
+class Sound {
+  constructor(options, start, length, frequency) {
+    this.nodes = {};
+    this.connections = {};
+    for (let i in options.connections)
+      this.connections[i] = options.connections[i];
+    for (let nodeName of Object.keys(options.connections)) {
+      if (nodeName.indexOf("Osc") > -1) {
+        if (options.wave == "Noise")
+          this.nodes[nodeName] = new Noise();
+        else {
+          if (options.detune > 0) 
+            this.processDetune(options.wave, options.detune, frequency);
+          this.nodes[nodeName] = new Oscillator(options.wave, 0, frequency);
+        }
+      } else if (nodeName.indexOf("Gain") > -1) {
+        this.nodes[nodeName] = new Gain();
+      } else if (nodeName.indexOf("filter") > -1) {
+        this.nodes[nodeName] = new Filter(options);
+      }
+    }
+    if ("fmOsc" in this.nodes) {
+      this.nodes["fmOsc"].node.type = "sine";
+      this.nodes["fmGain"].node.gain.value = options.fmGain;
+    }
+    if ("amOsc" in this.nodes) {
+      this.nodes["amOsc"].node.type = "sine";
+      this.nodes["amGain"].node.gain.value = options.amGain;
+    }
+    this.applyConnections();
+    this.applyEnvelopes(options.envelopes, start, length);
+    this.play(start);
+    this.stop(start + length);
+  }
+  
+  applyConnections() {
+    for (let nodeName in this.connections) {
+      let node = this.nodes[nodeName];
+      let dest = this.connections[nodeName];
+      if (dest == "output") node.node.connect(waveAnalyser);
+      else if (dest == "mainOsc.frequency")
+        node.node.connect(this.nodes["mainOsc"].node.frequency);
+      else if (dest == "mainGain.gain")
+        node.node.connect(this.nodes["mainGain"].node.gain);
+      else node.node.connect(this.nodes[dest].node);
+    }
+  }
+  
+  applyEnvelopes(envelopes, start, length) {
+    for (let nodeName in envelopes) {
+      let nodeType = (nodeName.indexOf("Gain") > -1)? "gain":"frequency";
+      this.nodes[nodeName].node[nodeType].cancelScheduledValues(0);
+      for (let ramp of envelopes[nodeName]) {
+        applyRamp(this.nodes[nodeName].node, ramp, start, length);
+      }
+    }
+  }
+  
+  processDetune(wave, detune, frequency) {
+    for (let i=-detune; i<=detune; i+=detune * 2) {
+      let node = new Oscillator(wave, i, frequency);
+      this.connections["detuneOsc"+i] = "mainGain";
+      this.nodes["detuneOsc"+i] = node;
+    }
+  }
+  
+  play(time = audioCtx.currentTime) {
+    for (let nodeId in this.nodes) {
+      if ("play" in this.nodes[nodeId]) {
+        this.nodes[nodeId].play(time);
+      }
+    }
+  }
+
+  stop(time = audioCtx.currentTime) {
+    for (let nodeId in this.nodes) {
+      if ("stop" in this.nodes[nodeId])
+        this.nodes[nodeId].stop(time);
+    }
+  }
+}
+
+function applyRamp(node, env, start, length=1) {
+  let nodeType = (node.constructor.name == "GainNode")? "gain":"frequency";
+  let type = rampTypes[env.type]+((env.type > 0)? "RampTo":"")+"ValueAtTime";
+  if (env.type == 2 && env.value == 0) env.value = 0.0001;
+  //console.log("Type: "+type+", value: "+env.value+", time: "+(start + env.time * length));
+  node[nodeType][type](env.value, start + env.time * length);
+}
+
+//Function to play the wave when the button is clicked
+function play(wave, key = "button"){
+  let frequency = (key == "button")? 440:lookupFreq(key);
+  if (frequency == 0) return;
+  const sound = sounds[getEle("soundOptions").value];
+  const start = audioCtx.currentTime;
+  const length = 60/getEle('bpm').value * Math.pow(2, getEle("length").value-3);
+  btnColors(selectedSound, wave);
+  selectedSound = wave;
+  sound.wave = wave;
+  let octave = getEle("octave").value;
+  for (let i=0; i<Math.abs(octave); i++) {
+    if (octave < 0) frequency = frequency / 2;
+    else frequency = frequency * 2;
+  }
+  getEle('freq').innerHTML="Freq: "+frequency+" hz ("+noteLookup[frequency]+")";
+  return new Sound(sound, start, length, frequency);
+}
+
+function playSequence() {
+  count +=1;
+  let now = audioCtx.currentTime;
+  const beatLen = 60/getEle('bpm').value;
+  const measures = getEle('measures').value;
+  if (sequencePlaying == 0) return;
+  for (let row of Object.keys(sequence)) {
+    for (let i=0; i<sequence[row].length; i++) {
+      let note = sequence[row][i];
+      let start = beatLen / seqZoom * note[0] - beatLen * 3;
+      let timePlayed = now-sequencePlaying;
+      let totalTime = measures*4*(60/getEle('bpm').value);
+      let diff = start - (timePlayed % totalTime);
+      if (totalTime-(timePlayed % totalTime) < beatLen*0.25) {
+        diff += totalTime;
+      }
+      if (diff >= 0 && diff < beatLen*0.25) {
+        if (note[3] == false) continue;
+        sequence[row][i][3] = false
+        const length = beatLen / seqZoom * (note[1]-note[0]);
+        generateSequenceSound(row, diff, length, note[2]);
+      } else sequence[row][i][3] = true;
+    }
+  }
+  let value = setTimeout(playSequence, beatLen * 200);
+}
+    
+function generateSequenceSound(row, start, length, name) {
+  const sound = sounds[name];
+  const frequency = Math.floor(27.5*Math.pow(Math.pow(2,1/12),(71-row)+3)+0.5);
+  start = audioCtx.currentTime + start;
+  //console.log("Wave: "+sound.wave+", Detune: "+sound.detune+", Frequency: "+frequency+", Length: "+length);
+  activeSounds.push(new Sound(sound, start, length, frequency));
+}
+
+function XY(e) {
+  let xy = {x:e.pageX-e.target.getBoundingClientRect().x,
+            y:e.pageY-e.target.getBoundingClientRect().y}
+  xy.row = Math.floor(xy.y/seqZoom);
+  xy.col = Math.floor(xy.x/seqZoom)-3;
+  return xy;
+}
+
+function isOnNote(row, x) {
+  if (row in sequence == false) return -1;
+  let selectedValue = getEle("soundSelect").value;
+  for (let i of Object.keys(sequence[row])) {
+    let note = sequence[row][i];
+    if (x > note[0] && x < note[1] && note[2] == selectedValue)
+      return i;
+  }
+  return -1;
+}
+
+function createLenButtons() {
+  let ele = getEle("lenButtons");
+  for (let i=0; i<6; i++) {
+    let b = document.createElement("button");
+    b.innerHTML = noteLengths[i];
+    b.value = 6-i;
+    b.className = "noteButton";
+    b.onclick = function (e) {changeNoteLen(e);}
+    ele.appendChild(b);
+  }
+  ele.value=3;
+  ele.children[3].style["background-color"] = "#ccc";
+  
+}
+
+function changeNoteLen(e) {
+  let parent = e.target.parentElement;
+  parent.children[parent.value].style["background-color"] = "#fff";
+  parent.value = e.target.value;
+  e.target.style["background-color"] = "#ccc";
+}
+
+function snap(x) {
+  let s = parseInt(getEle('lenButtons').value);
+  if (seqPointer.lock.length > 0) s += 1;
+  if (s == 0 && x == undefined) return seqZoom;
+  if (s == 0) return x;
+  const snap = (1/(2**(s-1)))*(4*seqZoom);
+  if (x == undefined) return snap;
+  return Math.floor((x-3*seqZoom)/snap)*snap + 3*seqZoom;
+}
+
+getEle("seqCanvas").addEventListener('mousedown', function(e) {
+  const xy = XY(e);
+  if (xy.col < 0 || xy.col >= getEle('measures').value * 4) return;
+  seqPointer = {down:true, x:xy.x, y:xy.y, sx:xy.x, sy:xy.y, new:false, lock:[]};
+  if (isOnNote(xy.row, xy.x) == -1) {
+    if (xy.row in sequence == false) sequence[xy.row] = [];
+    let x = snap(xy.x);
+    sequence[xy.row].push([x, x+snap(), getEle("soundSelect").value, true]);
+    drawSequence();
+    seqPointer.new = true;
+  }
+  seqPointer.lock = [xy.row, isOnNote(xy.row, xy.x)];
+});
+
+getEle("seqCanvas").addEventListener('mouseup', function(e) {
+  const xy = XY(e);
+  seqPointer.lock = [];
+  seqPointer.down = false;
+  if (seqPointer.new) return;
+  if (dist({x:xy.x,y:xy.y},{x:seqPointer.sx,y:seqPointer.sy}) < 2) {
+    const noteIndex = isOnNote(xy.row, xy.x);
+    if (noteIndex > -1) sequence[xy.row].splice(noteIndex,1);
+    drawSequence();
+  }
+});
+
+getEle("seqCanvas").addEventListener('mousemove', function(e) {
+  const xy = XY(e);
+  if (xy.col < 0 || xy.col >= getEle('measures').value * 4) return;
+  if (seqPointer.lock.length > 0) {
+    let lock = sequence[seqPointer.lock[0]][seqPointer.lock[1]];
+    let width = lock[1] - lock[0];
+    lock[0] = snap(xy.x);
+    lock[1] = snap(xy.x) + width;
+    drawSequence();
+  }
+  let cursor = (isOnNote(xy.row, xy.x) == -1)? "default":"move";
+  getEle("seqCanvas").style.cursor = cursor;
+});
+
+document.getElementById("sequencer").onscroll = () => (drawSequence());
+
+function drawSequence() {
+  let xPlus = document.getElementById("sequencer").scrollLeft;
+  let measures = getEle('measures').value;
+  let numKeys = 72;
+  ctxS.fillStyle = "#111";
+  ctxS.fillRect(0,0,seqC.width,seqC.height);
+  ctxS.strokeStyle = "rgba(255,255,255,0.5)";
+  ctxS.font = (seqZoom-5) + "px Arial";
+  for (let i=0; i<numKeys; i++) {
+    line(ctxS,{x:0,y:i*seqZoom}, {x:(3+measures*4)*seqZoom,y:i*seqZoom});
+    let note = notes[i%12]+(Math.floor(i/12)+(5-Math.floor((numKeys-24)/12)));
+    ctxS.fillStyle = (note[1]=="#")? "#111":"#ddd";
+    ctxS.fillRect(0+xPlus,(numKeys-i-1)*seqZoom+2,seqZoom*3,seqZoom-4);
+    ctxS.fillStyle = (note[1]=="#")? "#ddd":"#111";
+    ctxS.fillText(note,seqZoom*0.7+xPlus,(numKeys-i)*seqZoom-5);
+  }
+  for (let i=0; i<=measures*4; i++) {
+    ctxS.strokeStyle = "rgba(255,255,255,"+((i%4==0)? '0.5)':'0.1)');
+    line(ctxS,{x:i*seqZoom+seqZoom*3,y:0},{x:i*seqZoom+seqZoom*3,y:sh});
+  }
+  let seqKeys = Object.keys(sequence);
+  for (let row of seqKeys) {
+    for (let i=0; i<sequence[row].length; i++) {
+      const numNotes = findOtherNotesAtTime(row,i).sort(function(a,b){return a-b});
+      let offset = numNotes.indexOf(i);
+      let height = (seqZoom-4)/numNotes.length;
+      ctxS.fillStyle = sounds[sequence[row][i][2]].color;
+      ctxS.fillRect(sequence[row][i][0]+2, row*seqZoom+2+offset*height,
+      sequence[row][i][1]-sequence[row][i][0]-4, height);
+    }
+  }
+  if (sequencePlaying > 0) {
+    ctxS.strokeStyle = "red";
+    let timePlayed = audioCtx.currentTime-sequencePlaying;
+    let totalTime = measures*4*(60/getEle('bpm').value);
+    let totalWidth = 4*measures*seqZoom;
+    x = ((timePlayed/totalTime)*totalWidth)%totalWidth;
+    line(ctxS,{x:x+seqZoom*3,y:0},{x:x+seqZoom*3,y:sh});
+  }
+}
+
+//This function checks to see if there are other notes on the same row at the same
+//time. This is used for drawing them
+function findOtherNotesAtTime(row, index) {
+  let c = [index];
+  let r = sequence[row];
+  for (let i=0; i<r.length; i++) {
+    if (i==index) continue;
+    if ((r[i][0] > r[index][0] && r[i][0] < r[index][1]) ||
+        (r[i][1] > r[index][0] && r[i][1] < r[index][1]) ||
+        (r[index][0] > r[i][0] && r[index][0] < r[i][1]) ||
+        (r[index][1] > r[i][0] && r[index][1] < r[i][1]) ||
+        (r[i][0] == r[index][0] && r[i][1] == r[index][1])) c.push(i);
+  }
+  return c;
+}
+
+getEle("measures").oninput = function() {
+  seqC.width = getEle("measures").value * 4 * seqZoom + 3 * seqZoom;
+  drawSequence();
+}
+
+function exponentialLine(ctx, p1, p2) {
+  ctx.beginPath();
+  ctx.moveTo(p1.x, p1.y);
+  ctx.quadraticCurveTo(p1.x, p2.y, p2.x, p2.y);
+  ctx.stroke();
+}
+
+function line(ctx, p1, p2) {
+  ctx.beginPath();
+  ctx.moveTo(p1.x, p1.y);
+  ctx.lineTo(p2.x, p2.y);
+  ctx.stroke(); 
+}
+
+function circle(ctx, p1, radius) {
+  ctx.beginPath();
+  ctx.arc(p1.x, p1.y, radius, 0, 2 * Math.PI);
+  ctx.fill();
+}
+
+function dist(p1, p2) {return Math.sqrt(Math.pow(p1.x-p2.x,2)+Math.pow(p1.y-p2.y,2));}
+
+function getWave(name) {
+  return audioCtx.createPeriodicWave(customWaves[name].real,customWaves[name].imag);
+}
+
+function getEle(id) {return document.getElementById(id);}
+
+function unwrap(name, obj) {for(let i of name.split(".")) obj=obj[i]; return obj;}
+
+//Wave-tables copied from https://github.com/mohayonao/wave-tables
+//The arrays are dramatically shorter to reduce file size with little difference
+const customWaves = {
+  "Sine":{"real":[0, 1],"imag":[0,0]},
+  "Saw":{"real": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], "imag": [0, 0.159155, -0.079577, 0.053052, -0.039789, 0.031831, -0.026526, 0.022736, -0.019894, 0.017684, -0.015915, 0.014469, -0.013263, 0.012243, -0.011368, 0.01061, -0.009947, 0.009362, -0.008842, 0.008377, -0.007958, 0.007579, -0.007234, 0.00692, -0.006631, 0.006366, -0.006121, 0.005895, -0.005684, 0.005488, -0.005305, 0.005134]},
+  "Square":{"real": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], "imag": [0, 0.31831, 0, 0.106103, 0, 0.063662, 0, 0.045473, 0, 0.035368, 0, 0.028937, 0, 0.024485, 0, 0.021221, 0, 0.018724, 0, 0.016753, 0, 0.015158, 0, 0.01384, 0, 0.012732, 0, 0.011789, 0, 0.010976, 0, 0.010268]},
+  "Triangle":{"real": [0, 0.810569, 0, 0.090063, 0, 0.032423, 0, 0.016542, 0, 0.010007, 0, 0.006699, 0, 0.004796, 0, 0.003603, 0, 0.002805, 0, 0.002245, 0, 0.001838, 0, 0.001532, 0, 0.001297, 0, 0.001112, 0, 0.000964, 0, 0.000843], "imag": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]},
+  "Bass":{"real": [0, -1e-06, -0.085652, 0.034718, -0.036957, 0.014576, -0.005792, 0.003677, -0.002998, 0.001556, -0.000486, 0.0015, -0.000809, 0.000955, -0.000169, 0.000636, -0.000682, 0.000663, -0.000166, 0.000509, -0.00042, 0.000194, -2.5e-05, 0.000267, -0.000299, 0.000226, -3.8e-05, 0.000163, -0.000273, 0.000141, -4.7e-05, 0.000109], "imag": [0, 0.5, -1e-06, 0, -1e-06, 1e-06, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]},
+  "BassAmp360":{"real": [0, 0.498544, -0.052193, -0.019862, -0.002256, 0.001649, -0.000894, 0.000596, 0.00024, -0.000181, 0.000325, -8.8e-05, 2.2e-05, 3.3e-05, -4.9e-05, 3.9e-05, -3.8e-05, 3.6e-05, 1e-06, 4e-06, -7e-06, 6e-06, -1.4e-05, 2.2e-05, -1.3e-05, -1.2e-05, 6e-06, 4e-06, -5e-06, 2e-06, -2e-06, -6e-06], "imag": [0, -0.038133, 0.172877, -0.018249, 0.007476, -0.00245, 0.001892, -0.001804, 0.00105, -0.000623, 0.000246, -0.000137, -1.7e-05, 3.1e-05, 2e-06, -3.7e-05, 3.1e-05, -1e-05, 3.3e-05, -2e-05, 3e-06, 5e-06, 0, -1.4e-05, 1.5e-05, -2e-06, 1.1e-05, -6e-06, -1.4e-05, -8e-06, 2e-06, 1e-06]},
+  "BassFuzz":{"real": [0, 0.001056, -0.371626, -0.038289, -0.241364, 0.065179, -0.127552, 0.014426, -0.00302, -0.014399, -0.01333, 0.003929, -0.013432, 0.007582, -0.002041, -4.7e-05, 0.003094, -0.002225, -0.000156, 0.000395, -0.000159, 0.00016, 0.000402, 0.000149, 0.000178, 3e-05, 0.000372, -0.000328, 0.000189, -0.000124, 3.3e-05, -9.9e-05], "imag": [0, -0.499999, 0.077463, 0.070331, 0.132072, 0.012785, 0.003997, 0.02055, -0.010545, -0.008137, -0.000311, -0.013317, -0.004685, -0.00145, -0.006016, -0.004443, 0.0041, -0.007229, 0.002437, -0.002378, -0.000323, -0.000455, 0.000476, -0.000748, 0.000378, -0.000138, 8.7e-05, -0.000111, 0.000144, -0.00017, -5.2e-05, -0.000136]},
+  "BassSubDub":{"real": [0, -0.087481, -0.008727, 0.015668, -0.000741, -0.002277, -0.0016, -0.00405, -0.001203, -0.003604, -0.001386, -0.00309, -0.001163, -0.002088, -0.001024, -0.001233, -0.000737, -0.000601, -0.000461, -0.00017, -0.000188, -4e-06, -7e-06, 8.6e-05, 0.000105, 5e-05, 0.000133, 3.1e-05, 9.2e-05, -1.1e-05, 4e-05, -4e-06], "imag": [0, 0.492288, 0.009944, 0.032169,0.001931, 0.019775, 0.001332, 0.00657, 0.001131, 0.004102, 0.00065, 0.000918, 0.000445, 8.3e-05, 8.2e-05, -0.000726, -0.000113, -0.00063, -0.000292, -0.000559, -0.000277, -0.000299, -0.000256, -0.000153, -0.000139, -7e-06, -3.7e-05, 3.2e-05, 4.8e-05, 4.1e-05, 9e-05, 3.3e-05]},
+  "BassSubDub2":{"real": [0, -0.298519, -0.438701, 0.029934, -0.01282, 0.01361, -0.002967, 0.002248, 0.0042, -0.001483, -8.6e-05, 0.002181, 0.000517, -0.000966, -0.000483, -0.000341, -0.000472, -0.000503, 0.000189, 0.00023, -0.000165, 8.5e-05, 0.000132,9e-05, 7.4e-05, 0.000121, 0.000163, -2.4e-05, 2e-05, 3.1e-05, -5.2e-05, -2.4e-05], "imag": [0, 0.196789, 0.239878, -0.046114,0.137313, 0.004485, -0.007303, 0.007059, -0.000446, 0.004374, -0.004755, -0.000458, -0.000178, -0.001408, -0.000337, -0.000285, 0.000833, 4.5e-05, 1.8e-05, 0.000476, 4.8e-05, 9e-06, 1.9e-05, 0.000137, 5.1e-05, -8.8e-05, 1.3e-05, -3.7e-05, -0.00011, -3.4e-05, 3.2e-05, -1e-05]},
+  "Brass":{"real": [0, -0.051411, -0.085181, -0.45332, -0.042603, 0.04083, -0.204758, 0.02603, -0.147721, -0.007584, -0.07638, -0.003137, -0.064948, 0.003745, 0.120424, -0.002757, 0.016572, 0.001757, 0.005585, 0.001412, -0.011589, -0.001676, -0.010206, -0.005745, 0.002632, -0.001359, -0.001483, -0.003481, -0.005393, 0.003601, 0.004419, -0.002671], "imag": [0, 0.123894, 0.15737, 0.210952, -0.07615, -0.145613, -0.004471, -0.011613, 0.068694, 0.033905, 0.119128, -0.001508, -0.005879, 0.004987, -0.012356, -0.002032, 0.002838, 0.00564, 0.016947, 0.003254, 0.012119, 0.001022, 0.001041, -0.006764, 0.006971, 0.006519, 0.00636, -0.005381, 0.001966, 0.003007, 0.000692, -0.003329]},
+  "BritBlues":{"real": [0, 0.003915, -0.164554, 0.034611, 0.069911, 0.028231, 0.047549, 0.018651, -0.013682, -0.031255, -0.029816, 0.000659, 0.0295, 0.03558, 0.022052, -0.002817, -0.011609, -0.012592, -0.005837, 0.008523, 0.008795, 0.002894, -0.000759, -0.002033, -0.00355, -0.002653, -0.000387, 0.001989, 0.003417, 0.001766, 0, -0.000817], "imag": [0, -0.30197, -0.02984, -0.03342, -0.032345, -0.016191, 0.02986, 0.045049, 0.014313, 0.003638, -0.019988, -0.037528, -0.024295, 0.001519, 0.02086, 0.024232,0.011503, -0.003924, -0.008923, -0.004758, 0.001648, 0.002115, 0.003103, 0.002499, -0.000342, -0.002275, -0.003513, -0.002841, -0.0012, 0.00309, 0.003499, 0.00393]},
+  "BritBluesDriven":{"real": [0, 0.16238, 0.062109, 0.035087, 0.019162, 0.00229, 0.050003, -0.017683, 0.003847, 0.017706, 0.002123, 0.002409, 0.015985, -0.009882, 0.023513, -0.020894, 0.014567, -0.008968, 0.008466, -0.001435, 0.006276, -0.005895, 0.011753, -0.011957, 0.012239, -0.010608, 0.006371, -0.005362, -0.000515, -0.000915, 0.006307, -0.008339], "imag": [0, 0.121181, 0.134239, -0.057595, 0.049711, -0.015144, -0.006389, 0.003981, -0.00077, -0.012665, 0.018718, -0.017802, 0.010014, -0.02018, 0.006831, -0.001106, -0.009476, -0.006318, 0.001516, -0.006389, -0.004417, -0.006808, 0.00374, -0.005655, -0.004231, 0.002433, -0.006182, 0.001208, 0.00505, -0.00475, 0.001425, -0.000883]},
+  "Buzzy":{"real": [0, -1e-06, -0.139102, 0.086216, -0.053293, 0.034018, -0.024299, 0.01707, -0.015971, 0.01553, -0.012639, 0.011335, -0.011541, 0.01043, -0.009167, 0.008078, -0.007356, 0.007138, -0.006327, 0.005447, -0.001334, 0.000749, -0.000421, 0.000303, -0.000297, 0.000234, -0.00023, 0.000212, -0.000208, 0.000246, -0.000242, 0.000238], "imag": [0, 0.341455, -1e-06, 2e-06, -1e-06, 1e-06, -1e-06, 1e-06, -2e-06, 2e-06, -2e-06, 2e-06, -2e-06, 3e-06, -3e-06, 3e-06, -3e-06, 3e-06, -3e-06, 3e-06, -1e-06, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]},
+  "Celeste":{"real": [0, 0, -0.5, 0.000521, -0.001138, 0.000116, -0.001202, 8.1e-05, -0.000772, 0.000116, -0.000752, 0.000144, -0.000122, 2.7e-05, -0.000623, 0.000121, -8.5e-05, 5.5e-05, -0.000175, 5.3e-05, -5.1e-05, 5.2e-05, -0.000117, 7.1e-05, -7e-05,3.3e-05, -4.2e-05, 5e-05, -1.5e-05, 2.5e-05, -4e-05, 8.2e-05], "imag": [0, 0.002302, -3e-06, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]},
+  "ChorusStrings":{"real": [0, -0.056752, -0.485551, 0.414947, 0.037289, -0.089027, 0.041126, 0.025816, -0.000195, -0.002759, -0.019563, 0.00088, -0.017563, -0.002858, 0.001327, -0.000568, -6.4e-05, -0.000954, -0.000392, -0.000428, 0.001213, -0.001126, -0.00021, 0.000262, 3.2e-05, -7e-05, -2.3e-05, 3.5e-05, 5.9e-05, 0.000468, 0.000205, -0.000136], "imag": [0, -0.142044, 0.119331, 0.086961, 0.000519, 0.061124, -0.008195, 0.003663, -0.001992, -0.005229, -0.003499, 0.00294, 0.003171, 0.011203, 0.000387,0.000902, -0.000191, 0.00055, 0.000462, -0.000264, 0.000833, -0.000158, -3.8e-05, 1e-05, -0.000177, -6.1e-05, 0.000129, -0.000167, -7.1e-05, 0.000171, 0.000137, 7.8e-05]},
+  "Dissonant1":{"real": [0, 0, -0.001193, 0.000975, -0.225597, 0.000556, -0.000341, 0.146408, -0.000401, 0.000356, -0.082233, 0.000203, -0.000177, 0.054735, -0.000862, 0.000714, -0.054117, 0.000464, -0.000438, 0.042607, -0.000199, 0.000105, -0.04084, 6.1e-05, -6e-05, 0.027337, -5.8e-05, 5.7e-05, -0.033029, 5e-05, -4.9e-05, 0.037746], "imag": [0, 0.267096, 0, 0, -5e-06, 0, 0, 1.1e-05, 0, 0, -1.2e-05, 0, 0, 1.4e-05, 0, 0, -2.1e-05, 0, 0, 2.3e-05, 0, 0, -3e-05, 0, 0, 2.6e-05, 0, 0, -3.9e-05, 0, 0, 5.4e-05]},
+  "Dissonant2":{"real": [0, 0, -0.265053, 0.031303, -0.066069, 0.013133, -0.009975, 0.007226, -0.031381, 0.005814, -0.004185, 0.00364, -0.002811, 0.002464, -0.002233, 0.002158, -0.021544, 0.001203, -0.001169, 0.00089, -0.000868, 0.000847, -0.000732, 0.000716, -0.000701, 0.000687, -0.000653, 0.000641, -0.00061, 0.000564, -0.000434, 0.000118], "imag": [0, 0.163431, -2e-06, 0, -2e-06, 0, -1e-06, 1e-06, -3e-06, 1e-06, -1e-06, 1e-06, -1e-06, 1e-06, -1e-06, 1e-06, -8e-06, 1e-06, -1e-06, 0, -1e-06, 1e-06, -1e-06, 1e-06, -1e-06, 1e-06, -1e-06, 1e-06, -1e-06, 1e-06, -1e-06, 0]},
+  "DroppedSaw":{"real": [0, 0, -0.282095, 0, -0.199471, 0, -0.162868, 0, -0.141047, 0, -0.126157, 0, -0.115165, 0, -0.106622, 0, -0.099736, 0, -0.094032, 0, -0.089206, 0, -0.085055, 0, -0.081434, 0, -0.078239, 0, -0.075393, 0, -0.072837, 0], "imag": [0,0.099736, 0, 0.230329, 0, 0.178412, 0, 0.150786, 0, 0.132981, 0, 0.120286, 0, 0.110647, 0, 0.103006, 0, 0.096758, 0, 0.091524, 0, 0.087056, 0, 0.083185, 0, 0.079788, 0, 0.076776, 0, 0.074082, 0, 0.071652]},
+  "DroppedSquare":{"real": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], "imag": [0, 0.079577, 0, 0.106103, 0, 0.063662, 0, 0.045473, 0, 0.035368, 0, 0.028937, 0, 0.024485, 0, 0.021221, 0, 0.018724, 0,0.016753, 0, 0.015158, 0, 0.01384, 0, 0.012732, 0, 0.011789, 0, 0.010976, 0, 0.010268]},
+  "DynaEPBright":{"real": [0, 0.126773, 0.017974, -0.018236, -0.000572, 0.018139, -0.001907, 0.002945, -0.007326, 0.005861, 0.000958, 0.001293, -0.001846, -0.002062, 0.001217, -0.000753, 0.001256, -0.001891, -0.002088, 0.001745, -0.000204, 0.000173, -0.000884, 0.002247, -0.00241, 0.002232, 0.002181, -0.003279, 0.003242, -0.00095, -0.001026, 0.002184], "imag": [0, -0.049064, -0.06626, 0.053048, -0.003642, 0.016123, -0.016702, -0.003665, 0.002182, 0.00251, 0.003818, -0.002636, 0.001435, -0.001056, 0.001955, 0.002094, -0.00175, 0.000892, -0.000171, 0.001398, 0.002456, 0.003367, -0.003502, 0.003155, 0.002928, -0.002971, 0.001835, -0.000748, -0.00063, 0.003104, -0.003022, 0.002255]},
+  "DynaEPMed":{"real": [0, -1e-06, -0.269882, 0.107057, -0.002942, 0.013992, -0.009736, 0.001942, -0.005952, 0.00175, -0.001294, 0.001534, -0.000433, 0.001327, -0.000653, 0.000677, -0.000264, 0.000338, -0.000501, 0.00094, -0.000752, 0.001031, -0.001881,0.000812, -0.001156, 0.001026, -0.000888, 0.000871, -0.000757, 0.000699, -0.000667, 0.000617], "imag": [0, 0.5, -2e-06, 1e-06, 0, 1e-06, -1e-06, 0, -1e-06, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1e-06, 0, 1e-06, -1e-06, 1e-06, -1e-06, 1e-06, -1e-06, 1e-06, -1e-06, 1e-06, -1e-06, 1e-06]},
+  "Ethnic33":{"real": [0, -0.867611, 0.328068, 0.139449, 0.063681, -0.180347, -0.107318, 0.02568, -0.195668, -0.162557, -0.17598, 0.121916, 0.024771, -0.097123, 0.062144, -0.005063, -0.151144, -0.358389, -0.016781, -0.028287, 0.014708, 0.066692, -0.005924, -0.024762, 0.007058, -0.021288, -0.015686, -0.0104, 0.002762, 0.006183, -0.004794, 0.00689], "imag": [0, -0.497243, 0.018673, -0.020198, -0.017604, -0.430734, 0.488347, -0.157997, -0.023562, 0.260166, 0.076547, 0.124548, 0.01569, 0.070011, 0.057046, -0.01783, -0.032054, 0.083384, -0.011498, -0.047527, -0.003573, 0.110977, -0.006572, 0.006369, 0.00763, 0.001274, 0.004114, -0.009236, 0.000347, 0.00093, 0.004793, -0.003242]},
+  "Full":{"real": [0, -1e-06, -0.249268, 0.113655, -0.053293, 0.034018, -0.024299, 0.01707, -0.015971, 0.01553, -0.012639, 0.011335, -0.011541, 0.01043, -0.009167, 0.008078, -0.007356, 0.007138, -0.006327, 0.005447, -0.005309, 0.004444, -0.004343, 0.003643, -0.003567, 0.003091, -0.003031, 0.002885, -0.002747, 0.002618, -0.003095, 0.003045], "imag": [0, 0.493552, -1e-06, 2e-06, -1e-06, 1e-06, -1e-06, 1e-06, -2e-06, 2e-06, -2e-06, 2e-06, -2e-06, 3e-06, -3e-06, 3e-06, -3e-06, 3e-06, -3e-06, 3e-06, -3e-06, 3e-06, -3e-06, 3e-06, -3e-06, 3e-06, -3e-06, 3e-06, -3e-06, 3e-06, -4e-06, 4e-06]},
+  "GuitarFuzz":{"real": [0, 0, -0.201064, 0.149827, -0.098477, 0.080283, -0.07026, 0.050394, -0.080673, 0.008269, -0.036969, 0.004236, -0.04326, 0.003565, -0.032427, 0.005396, -0.021767, 0.020271, -0.014946, 0.011036, -0.010757, 0.008469, -0.008275, 0.007381, -0.007226, 0.007081, -0.006944, 0.006814, -0.006901, 0.006781, -0.006668, 0.006559], "imag": [0, 0.202613, -1e-06, 2e-06, -2e-06, 3e-06, -4e-06, 4e-06, -8e-06, 1e-06, -6e-06, 1e-06, -9e-06, 1e-06, -1e-05, 2e-06, -8e-06, 9e-06, -7e-06, 6e-06, -6e-06, 5e-06, -7e-06, 5e-06, -5e-06, 9e-06, -8e-06, 5e-06, -8e-06, 1e-05, -9e-06, 1.1e-05]},
+  "Harsh":{"real": [0, 0, -0.120226, 0.092153, -0.069183, 0.055389, -0.052221, 0.046895, -0.043652, 0.041914, -0.040126, 0.037627, -0.035036, 0.03235, -0.031463, 0.029372, -0.02884, 0.027149, -0.026446, 0.025058, -0.02381, 0.023031, -0.021987, 0.021034,-0.020161, 0.019357, -0.018615, 0.017928, -0.01729, 0.016696, -0.016141, 0.015622], "imag": [0, 0.229087, 0, 0, 0, 2e-06, -3e-06, 3e-06, -6e-06, 6e-06, -7e-06, 7e-06, -7e-06, 1.1e-05, -1.1e-05, 1e-05, -1.1e-05, 1.1e-05, -1.5e-05, 1.4e-05, -1.8e-05, 0,0, 0, 0, 0, 0, 0, 0, 0, 0, 0]},
+  "MklHard":{"real": [0, 0.392449, -0.25373, -0.178801, 0.034632, -0.087838, -0.139327, -0.043383, -0.00755, -0.04244, -0.037459, 0.019163, 0.003833, -0.000103, 0.002996, 0.001477, -0.000204, 4.9e-05, -0.00016, -0.002359, -0.002506, -0.001656, 0.001242,0.002462, 0.001396, 0.002753, 0.003166, -0.002514, -0.001609, 0.002009, 0.001463, -0.000981], "imag": [0, -0.055435, -0.188491, -0.466937, -0.169807, 0.044309, -0.012785, -0.033153, 0.027946, 0.047576, 0.015621, 0.025868, 0.023068, 0.001797, -1.7e-05,0.001077, -6.8e-05, -0.00033, 7.1e-05, 0.002209, 0.00566, 0.00562, 0.005411, 0.00484, 0.00434, 0.002496, 0.001805, 0.000434, 0.001921, 0.001423, -0.001109, -0.001517]},
+  "Noise":{},
+  "Organ":{"real": [0, 0, -0.06072, 0.030357, -0.015136, 0.006684, -0.003512, 0.002544, -0.002455, 0.002315, -0.001264, 0.004643, -8.9e-05, 0.000353, -0.000165, 0.000152, -0.000145, 0.000184, -0.000123, 0.000216, -0.000135, 0.000222, -0.000219, 6.6e-05, -0.000701, 0.000387, -0.000125, 0.000341, -0.000117, 0.004817, -0.000568, 0.003995], "imag": [0, 0.168526, 0, 0, 0, 0, 0, 0,0, 0, 0, 1e-06, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1e-06, 0, 0, 0, 0, 6e-06, -1e-06, 6e-06]},
+  "PhonemeAh":{"real": [0, 0.246738, 0.08389, 0.095378, 0.087885, 0.165621, 0.287369, -0.328845, -0.099613, -0.198535, 0.260484, 0.012771, 0.013351, 0.006221, 0.003106, 0.000629, -0.003591, -0.002876, -0.003527, -0.002975, -0.002648, -0.006996, -0.004165, -0.004266, -0.000731, 0.003727, 0.018167, 0.012018, -0.017044, -0.004816, -0.001255, -0.002032], "imag": [0, -0.011959, 0.106385, 0.027196, 0.04077, 0.010807, -0.17632, -0.376644, 0.052966, 0.242678, 0.322558, -0.029071, -0.017862, -0.018765, -0.010794, -0.010157, -0.004212, -0.001923, -0.002589, -0.000607, -0.001983, -0.000421, -0.001835, 0.003069, 0.005389, 0.012023, 0.003422, -0.013914, -0.008548, 0.007815, 0.002234, 0.003867]},
+  "PhonemeEe":{"real": [0, -0.18267, -0.381543, 0.046629, -0.280517, -0.058269, 0.014912, 0.011407, -0.00491, -0.008831, 0.007088, 0.005653, -0.007082, -0.004146, 0.007708, 0.007322, -0.007934, -0.001923, 0.012704, -0.003957, -0.025076, 0.081539, -0.028921, -0.009431, 0.029387, -0.030368, -0.027489, 0.078646, -0.029917, 0.032701, 0.025565, -0.01946], "imag": [0, -0.43237, -0.202117, 0.451975, -0.413897, 0.067733, -0.004269, -0.003175, -0.010887, 0.002024, 0.010798, -0.007897, -0.001622, 0.006998, 0.000402, -0.004589, 0.002325, 0.012148, -0.000278, -0.026627, 0.030999, 0.000779, 0.003562, 0.059443, -0.000897, -0.060501, 0.050517, -0.071021, -0.016851, 0.033358, -0.020689, 0.017911]},
+  "PhonemeO":{"real": [0, -0.080209, -0.21954, -0.060589, 0.36458, -0.411463, 0.06652, 0.04133, -0.215818, 0.161503, -0.036905,0.004351, 0.007838, -0.004814, -0.002541, 0.003939, -2.8e-05, -0.003197, 0.000466, 0.003021, -0.001496, -0.002209, 0.002657, 0.003289, -0.004374, 0.004757, -0.002731, -0.000593, 0.001295, -0.000466, -0.001121, 0.001177], "imag": [0, -0.243544, -0.090743, 0.179526, -0.105756, 0.284074, 0.06637, -0.095933, 0.093024, -0.056154, -0.008391, 0.016768, -0.007261, -0.005575, 0.004419, 0.003625, -0.003227, -0.000503, 0.002198, -0.000518, -0.002207, 0.00175, 0.002341, -0.005738, 0.008116, -0.001018, -0.002846, 0.002742, -0.000118, -0.001497, 0.000469, 0.000673]},
+  "PhonemeOoh":{"real": [0, -0.370874, 0.288281, -0.454893, 0.061559, 0.049432, -0.012918, 0.129553, -0.041687, -0.012594, -0.006316, 0.00813, 0.000601, -0.000181, -0.005799, 0.000374, -0.000806, 0.000236, -0.001341, 0.000891, 0.000361, 0.000822, -0.000374, 0.0006, 0.000703, -0.002483, 0.002295, -0.000217, 0.00045, -0.00019, 3.4e-05, -0.000237], "imag": [0, 0.046536, 0.256926,0.019372, -0.496196, 0.016047, -0.063615, 0.021345, -0.007871, -0.020463, 0.009909, 0.003165, -0.000942, -0.002837, 0.002435,-0.003583, 0.001061, -0.002121, -0.00013, 0.000233, -0.00032, 8.7e-05, 0.00095, -0.001264, 0.002961, -0.000701, 0.000715, 0.000451, -0.000291, 4.8e-05, 0.000166, -0.000528]},
+  "PhonemePopAhhhs":{"real": [0, -1e-06, -0.093325, 0.128506, -0.104713, 0.167897, -0.08297, 0.101289, -0.057987, 0.045483, -0.035896, 0.006348, -0.00915, 0.021061, -0.014091, 0.010303, -0.024227, 0.043673, -0.054264, 0.052822, -0.029628, 0.072636, -0.060872, 0.009697, -0.02875, 0.00986, -0.022329, 0.017, -0.011004, 0.032457, -0.024208, 0.012005], "imag": [0, 0.493552, 0, 2e-06, -2e-06, 6e-06, -4e-06, 8e-06, -6e-06, 6e-06, -5e-06, 1e-06, -2e-06, 5e-06, -4e-06, 3e-06, -9e-06, 1.9e-05, -2.6e-05, 2.9e-05, -1.8e-05, 4.8e-05, -4.4e-05, 8e-06, -2.5e-05, 9e-06, -2.3e-05, 1.9e-05, -1.3e-05, 4.1e-05, -3.2e-05, 1.7e-05]},
+  "Piano":{"real": [0, 0, -0.203569, 0.5, -0.401676, 0.137128, -0.104117, 0.115965, -0.004413, 0.067884, -0.00888, 0.0793, -0.038756, 0.011882, -0.030883, 0.027608, -0.013429, 0.00393, -0.014029, 0.00972, -0.007653, 0.007866, -0.032029, 0.046127, -0.024155, 0.023095, -0.005522, 0.004511, -0.003593, 0.011248, -0.004919, 0.008505], "imag": [0, 0.147621, -1e-06, 7e-06, -1e-05, 5e-06, -6e-06, 9e-06, 0, 8e-06, -1e-06, 1.4e-05, -8e-06, 3e-06, -9e-06, 9e-06, -5e-06, 2e-06, -7e-06, 5e-06, -5e-06, 5e-06, -2.3e-05, 3.7e-05, -2.1e-05, 2.2e-05, -6e-06, 5e-06, -4e-06, 1.4e-05, -7e-06, 1.2e-05]},
+  "Pulse":{"real": [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], "imag": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]},
+  "PutneyWavering":{"real": [0, 0.428098, -0.197819, 0.083543, 0.136902, 0.009801, 0.076428, -0.079213, 0.010934, 0.005406, -0.047524, -0.014661, -0.001684, 0.018226, 0.012609, 0.023833, -0.004481, -0.021685, -0.012259, -0.022276, 0.016146, 0.007447, -0.004498, 0.014966, -0.001971, -0.001494, -0.000512, -0.004515, 0.00311, -0.000677, -0.014199, 0.01943], "imag": [0, -0.245613,0.112023, 0.102132, -0.011492, 0.036449, -0.102787, 0.01716, -0.038001, -0.012934, 0.055055, -0.044162, 0.034814, 0.035904, -0.027612, -0.005207, -0.028942, -0.007422, 0.016201, 0.001943, 0.012628, 0.018568, -0.006616, -0.004633, 0.0017, -0.006371, 0.0014, -0.002288, -0.000274, 0.007637, -0.010749, -0.008134]},
+  "TB303Square":{"real": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], "imag": [0, -0.46267, 0, 0.514476, 0, -0.222225, 0, 0.198434, 0, -0.131464, 0, 0.122448, 0, -0.093145, 0, 0.088485, 0, -0.072092, 0, 0.069258, 0, -0.058792, 0, 0.056891, 0, -0.049633, 0, 0.048269, 0, -0.042941, 0, 0.041916]},
+  "Throaty":{"real": [0, 0, -0.194984, 0.024486, -0.005329, 0.001841, -0.001442, 0.001335, -0.001597, 0.002315, -0.003376, 0.004513, -0.004321, 0.005474, -0.00615, 0.005942, -0.006918, 0.006712, -0.00943, 0.009179, -0.008948, 0.008733, -0.010578, 0.010347, -0.01013, 0.010554, -0.01035, 0.010157, -0.009975, 0.009802, -0.009638, 0.009481], "imag": [0, 0, -1e-06, 0, 0, 0, 0, 0, 0, 0, -1e-06, 1e-06, -1e-06, 1e-06, -2e-06, 2e-06, -3e-06, 3e-06, -5e-06, 5e-06, -5e-06, 6e-06, -8e-06, 8e-06, -9e-06, 1e-05, -1e-05, 1.1e-05, -1.2e-05, 1.2e-05, -1.3e-05, 1.4e-05]},
+  "Trombone":{"real": [0, 0.171738, 0.131907, -0.1948, -0.129913, -0.081043, 0.049213, 0.027828, -0.008357, -0.005044, 0.002145, 0.000773, -0.001392, -0.000916, -1.2e-05, 0.000323, -3e-06, 0.000127, -0.000135, -2.9e-05, -3.1e-05, 8.7e-05, -9.1e-05, 5e-06, -2.6e-05, 2.7e-05, -6.2e-05, -1.7e-05, -2e-06, 2e-06, 1.2e-05, -2.4e-05], "imag": [0, -0.090905, 0.482287, 0.259485, 0.009402, -0.125271, -0.046816, 0.007872, 0.001762, -0.010488, -0.002305, 0.001791, 0.001101, -0.000303, -6.4e-05, 0.000143, 5.9e-05, 0.000116, 0.00012, -1.1e-05, -6.6e-05, -1.9e-05, 2.4e-05, 1.4e-05, 6.9e-05, 5.6e-05, 5e-06, 2e-06, -2.6e-05, -1.5e-05, 5.5e-05, 1.2e-05]},
+  "TwelveOpTines":{"real": [0, 0.316591, 0.135894, -0.036898, -0.066656, 0.004884, 0.00726, -0.000552, 0.031941, -2.4e-05, 0.000287, 0.003007, -2.5e-05, -2.1e-05, -0.000178, -8.3e-05, -0.010087, 9.1e-05, -7.1e-05, -3.2e-05, -0.000141, 0.000136, 9.7e-05,0.000333, -0.000515, 0.000347, 5.1e-05, 8.1e-05, 3.6e-05, 0.006155, 0.000197, 0.004958], "imag": [0, 0.220954, 0.071252, 0.150027, -0.027788, -0.023728, 0.001929, 0.001514, 0.032206, -0.002946, 0.000482, -0.006003, -0.000471, 8.5e-05, -0.000392, 6.7e-05, -0.014151, 0.000193, -0.000226, -3.4e-05, 1.9e-05, -0.000405, -0.000101, 0.000366, -0.000314, -0.000184, -5e-05, 0.000272,-0.000225, 0.003624, -0.000489, 0.001014]},
+  "TwelveStringGuitar1":{"real": [0, 0, -0.179748, 0.252497, -0.212162, 0.069443, -0.067304, 0.006291, -0.063344, 0.007604, -0.069661, 0.004429, -0.01903, 0.000601, -0.001895, 0.000841, -0.009026, 0.001311, -0.024059, 0.002217, -0.019063, 0.002118, -0.04849, 0.000659, -0.007014, 0.000529, -0.003632, 0.000157, -0.000265, 4.6e-05, -0.000325, 0.000503], "imag": [0, 0.20893, -1e-06, 4e-06, -5e-06, 3e-06, -4e-06, 0, -6e-06, 1e-06, -1e-05, 1e-06, -4e-06, 0, -1e-06, 0, -3e-06, 1e-06, -1.2e-05, 1e-06, -1.1e-05, 1e-06, -3.5e-05, 1e-06, -6e-06, 0, -4e-06, 0, 0, 0, 0, 1e-06]},
+  "WarmSaw":{"real": [0, 0, -0.282095, 0, -0.199471, 0, -0.162868, 0, -0.141047, 0, -0.126157, 0, -0.115165, 0, -0.106622, 0, -0.099736, 0, -0.094032, 0, -0.089206, 0, -0.085055, 0, -0.081434, 0, -0.078239, 0, -0.075393, 0, -0.072837, 0], "imag": [0, 0.398942, 0, 0.230329, 0, 0.178412, 0, 0.150786, 0, 0.132981, 0, 0.120286, 0, 0.110647, 0, 0.103006, 0, 0.096758, 0, 0.091524, 0, 0.087056, 0, 0.083185, 0, 0.079788, 0, 0.076776, 0, 0.074082, 0, 0.071652]},
+  "WarmSquare":{"real": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], "imag": [0, 0.797885, 0, 0.460659, 0, 0.356825, 0, 0.301572, 0, 0.265962, 0, 0.240571, 0, 0.221293, 0, 0.206013, 0, 0.193515, 0, 0.183047, 0, 0.174113, 0, 0.16637, 0, 0.159577, 0, 0.153553, 0, 0.148163, 0, 0.143304]},
+  "WarmTriangle":{"real": [0, 0.63662, 0, 0.212207, 0, 0.127324, 0, 0.090946, 0, 0.070736, 0, 0.057875, 0, 0.048971, 0, 0.042441, 0, 0.037448, 0, 0.033506, 0, 0.030315, 0, 0.027679, 0, 0.025465, 0, 0.023579, 0, 0.021952, 0, 0.020536], "imag": [0, -0.63662, 0, -0.212207, 0, -0.127324, 0, -0.090946, 0, -0.070736, 0, -0.057875, 0, -0.048971, 0, -0.042441, 0, -0.037448, 0, -0.033506, 0, -0.030315, 0, -0.027679, 0, -0.025465, 0, -0.023579, 0, -0.021952, 0, -0.020536]},
+  "Wurlitzer":{"real": [0, 0, -0.382713, 0.5, -0.114418, 0.453856, -0.121481, 0.273632, -0.190467, 0.116104, -0.171632, 0.02464, -0.13362, 0.028582, -0.103649, 0.085895, -0.075858, 0.088487, -0.028478, 0.065485, -0.007914, 0.040534, -0.035028, 0.023703,-0.021164, 0.018341, -0.013231, 0.010474, -0.008555, 0.005816, -0.005546, 0.005456], "imag": [0, 0.321119, -2e-06, 7e-06, -3e-06, 1.7e-05, -7e-06, 2e-05, -1.8e-05, 1.4e-05, -2.6e-05, 4e-06, -2.9e-05, 7e-06, -3.1e-05, 2.9e-05, -2.8e-05, 3.8e-05, -1.3e-05, 3.6e-05, -5e-06, 2.6e-05, -2.4e-05, 1.9e-05, -1.9e-05, 1.8e-05, -1.3e-05, 1.2e-05, -1.1e-05, 7e-06, -8e-06, 7e-06]},
+  "Wurlitzer2":{"real": [0, 0.256157, 0.287502, -0.33916, -0.04524, 0.276038, -0.076183, -0.156578, 0.08866, 0.052823, -0.043895, -0.008253, 0.007385, -0.000169, 0.006791, -0.00193, -0.004648, 0.001325, -0.000465, 0.001447, 0.00149, -0.002043, -0.000279, -0.000533, 0.000236, 0.002956, -0.001489, -0.003211, 0.001774, 0.002716, -0.001572, -0.001386], "imag": [0, -0.110487, -0.278876, 0.367383, 0.036321, -0.170779, 0.028859, 0.013815, 0.01413, 0.030014, -0.041771, -0.014977, 0.036079, 0.00057, -0.015222, 0.002152, 0.002587, -0.000112, 3.5e-05, 0.000451, 0.001269, -0.003233, -0.001189, 0.004621, -0.000412, -0.002951, 0.000369, 0.000553, 0.000444, 0.001178, -0.001841, -0.001937]}
+}
+
+function loadSequence(n) {
+  if (n == 1)
+    text='{\n  "sounds": {\n    "Sound1": {\n      "color":"#0F0",\n      "wave":"PhonemeAh",\n      "filterType":"lowpass",\n      "detune":"0",\n      "octave":"0",\n      "length":"3",\n      "volume":"29",\n      "fmGain":"200",\n      "amGain":"0.5",\n      "envelopes":{\n        "mainGain": [\n          {"type":0,"value":0,"time":0},\n          {"type":1,"value":0.912,"time":0.016},\n          {"type":1,"value":0.912,"time":0.358},\n          {"type":1,"value":0.175,"time":0.616},\n          {"type":1,"value":0.001,"time":1},\n        ],\n      },\n      "connections":{\n        "mainOsc":"mainGain",\n        "mainGain":"output",\n      },\n    },\n  },\n  "sequence": [\n    {"start":0, "length":1, "note":"F3", "sound":"Sound1"},\n    {"start":1, "length":0.5, "note":"G#3", "sound":"Sound1"},\n    {"start":1.5, "length":0.5, "note":"F3", "sound":"Sound1"},\n    {"start":2, "length":0.25, "note":"F3", "sound":"Sound1"},\n    {"start":2.25, "length":0.25, "note":"F3", "sound":"Sound1"},\n    {"start":2.5, "length":0.5, "note":"A#3", "sound":"Sound1"},\n    {"start":3, "length":0.5, "note":"F3", "sound":"Sound1"},\n    {"start":3.5, "length":0.5, "note":"D#3", "sound":"Sound1"},\n    {"start":4, "length":1, "note":"F3", "sound":"Sound1"},\n    {"start":5, "length":0.5, "note":"C4", "sound":"Sound1"},\n    {"start":5.5, "length":0.5, "note":"F3", "sound":"Sound1"},\n    {"start":6, "length":0.25, "note":"F3", "sound":"Sound1"},\n    {"start":6.25, "length":0.25, "note":"F3", "sound":"Sound1"},\n    {"start":6.5, "length":0.5, "note":"C#4", "sound":"Sound1"},\n    {"start":7, "length":0.5, "note":"C4", "sound":"Sound1"},\n    {"start":7.5, "length":0.5, "note":"G#3", "sound":"Sound1"},\n    {"start":8, "length":0.5, "note":"F3", "sound":"Sound1"},\n    {"start":8.5, "length":0.5, "note":"C4", "sound":"Sound1"},\n    {"start":9, "length":0.5, "note":"F4", "sound":"Sound1"},\n    {"start":9.5, "length":0.25, "note":"E3", "sound":"Sound1"},\n    {"start":9.75, "length":0.5, "note":"D#3", "sound":"Sound1"},\n    {"start":10.25, "length":0.25, "note":"D#3", "sound":"Sound1"},\n    {"start":10.5, "length":0.5, "note":"C3", "sound":"Sound1"},\n    {"start":11, "length":0.5, "note":"G3", "sound":"Sound1"},\n    {"start":11.5, "length":2, "note":"F3", "sound":"Sound1"},\n  ],\n  "bpm": 128,\n  "measures": 4\n}';
+  if (n == 2)
+    text='{\n  "sounds": {\n    "Sound1": {\n      "color":"#0F0",\n      "wave":"PutneyWavering",\n      "filterType":"lowpass",\n      "detune":"0",\n      "octave":"0",\n      "length":"3",\n      "volume":"10",\n      "fmGain":"200",\n      "amGain":"0.5",\n      "envelopes":{\n        "mainGain": [\n          {"type":0,"value":0,"time":0},\n          {"type":1,"value":0.575,"time":0.066},\n          {"type":1,"value":0.837,"time":0.316},\n          {"type":1,"value":0.4,"time":0.525},\n          {"type":1,"value":0.001,"time":1},\n        ],\n      },\n      "connections":{\n        "mainOsc":"mainGain",\n        "mainGain":"output",\n      },\n    },\n    "Sound2": {\n      "color":"#F00",\n      "wave":"WarmSquare",\n      "filterType":"lowpass",\n      "detune":"5",\n      "octave":"0",\n      "length":"3",\n      "volume":"10",\n      "fmGain":"200",\n      "amGain":"0.5",\n      "envelopes":{\n        "mainGain": [\n          {"type":0,"value":0,"time":0},\n          {"type":1,"value":0.9,"time":0.041},\n          {"type":1,"value":-0.013,"time":1},\n        ],\n      },\n      "connections":{\n        "mainOsc":"mainGain",\n        "mainGain":"output",\n      },\n    },\n  },\n  "sequence": [\n    {"start":0, "length":2, "note":"D3", "sound":"Sound1"},\n    {"start":1, "length":0.25, "note":"F4", "sound":"Sound1"},\n    {"start":1, "length":0.25, "note":"A4", "sound":"Sound1"},\n    {"start":2, "length":0.25, "note":"F4", "sound":"Sound1"},\n    {"start":2, "length":0.25, "note":"A4", "sound":"Sound1"},\n    {"start":3, "length":2, "note":"E3", "sound":"Sound1"},\n    {"start":3.5, "length":0.5, "note":"E4", "sound":"Sound1"},\n    {"start":4, "length":2, "note":"G4", "sound":"Sound1"},\n    {"start":4, "length":2, "note":"B4", "sound":"Sound1"},\n    {"start":6, "length":2, "note":"F3", "sound":"Sound1"},\n    {"start":7, "length":0.25, "note":"A4", "sound":"Sound1"},\n    {"start":7, "length":0.25, "note":"C5", "sound":"Sound1"},\n    {"start":8, "length":0.25, "note":"A4", "sound":"Sound1"},\n    {"start":8, "length":0.25, "note":"C5", "sound":"Sound1"},\n    {"start":9, "length":2, "note":"E3", "sound":"Sound1"},\n    {"start":9.5, "length":0.5, "note":"E4", "sound":"Sound1"},\n    {"start":10, "length":2, "note":"G4", "sound":"Sound1"},\n    {"start":10, "length":2, "note":"B4", "sound":"Sound1"},\n    {"start":12, "length":2, "note":"D3", "sound":"Sound1"},\n    {"start":13, "length":0.25, "note":"F4", "sound":"Sound1"},\n    {"start":13, "length":0.25, "note":"A4", "sound":"Sound1"},\n    {"start":14, "length":0.25, "note":"F4", "sound":"Sound1"},\n    {"start":14, "length":0.25, "note":"A4", "sound":"Sound1"},\n    {"start":15, "length":2, "note":"E3", "sound":"Sound1"},\n    {"start":15.5, "length":0.5, "note":"E4", "sound":"Sound1"},\n    {"start":16, "length":2, "note":"G4", "sound":"Sound1"},\n    {"start":16, "length":2, "note":"B4", "sound":"Sound1"},\n    {"start":18, "length":2, "note":"F3", "sound":"Sound1"},\n    {"start":19, "length":0.25, "note":"A4", "sound":"Sound1"},\n    {"start":19, "length":0.25, "note":"C5", "sound":"Sound1"},\n    {"start":20, "length":0.25, "note":"A4", "sound":"Sound1"},\n    {"start":20, "length":0.25, "note":"C5", "sound":"Sound1"},\n    {"start":21, "length":2, "note":"E3", "sound":"Sound1"},\n    {"start":21.5, "length":0.5, "note":"E4", "sound":"Sound1"},\n    {"start":22, "length":2, "note":"G4", "sound":"Sound1"},\n    {"start":22, "length":2, "note":"B4", "sound":"Sound1"},\n    {"start":24, "length":2, "note":"D3", "sound":"Sound1"},\n    {"start":24, "length":0.5, "note":"D5", "sound":"Sound2"},\n    {"start":24.5, "length":0.5, "note":"F5", "sound":"Sound2"},\n    {"start":25, "length":0.25, "note":"F4", "sound":"Sound1"},\n    {"start":25, "length":0.25, "note":"A4", "sound":"Sound1"},\n    {"start":25, "length":2, "note":"D6", "sound":"Sound2"},\n    {"start":26, "length":0.25, "note":"F4", "sound":"Sound1"},\n    {"start":26, "length":0.25, "note":"A4", "sound":"Sound1"},\n    {"start":27, "length":2, "note":"E3", "sound":"Sound1"},\n    {"start":27, "length":0.5, "note":"D5", "sound":"Sound2"},\n    {"start":27.5, "length":0.5, "note":"E4", "sound":"Sound1"},\n    {"start":27.5, "length":0.5, "note":"F5", "sound":"Sound2"},\n    {"start":28, "length":2, "note":"G4", "sound":"Sound1"},\n    {"start":28, "length":2, "note":"B4", "sound":"Sound1"},\n    {"start":28, "length":2, "note":"D6", "sound":"Sound2"},\n    {"start":30, "length":2, "note":"F3", "sound":"Sound1"},\n    {"start":30, "length":1, "note":"E6", "sound":"Sound2"},\n    {"start":31, "length":0.25, "note":"A4", "sound":"Sound1"},\n    {"start":31, "length":0.25, "note":"C5", "sound":"Sound1"},\n    {"start":31.5, "length":0.5, "note":"F6", "sound":"Sound2"},\n    {"start":32, "length":0.25, "note":"A4", "sound":"Sound1"},\n    {"start":32, "length":0.25, "note":"C5", "sound":"Sound1"},\n    {"start":32, "length":0.5, "note":"E6", "sound":"Sound2"},\n    {"start":32.5, "length":0.5, "note":"F6", "sound":"Sound2"},\n    {"start":33, "length":2, "note":"E3", "sound":"Sound1"},\n    {"start":33, "length":0.5, "note":"E6", "sound":"Sound2"},\n    {"start":33.5, "length":0.5, "note":"E4", "sound":"Sound1"},\n    {"start":33.5, "length":0.5, "note":"C6", "sound":"Sound2"},\n    {"start":34, "length":2, "note":"G4", "sound":"Sound1"},\n    {"start":34, "length":2, "note":"B4", "sound":"Sound1"},\n    {"start":34, "length":2, "note":"A5", "sound":"Sound2"},\n    {"start":36, "length":2, "note":"A#3", "sound":"Sound1"},\n    {"start":36, "length":1, "note":"A5", "sound":"Sound2"},\n    {"start":37, "length":0.25, "note":"F4", "sound":"Sound1"},\n    {"start":37, "length":0.25, "note":"A4", "sound":"Sound1"},\n    {"start":37, "length":1, "note":"D5", "sound":"Sound2"},\n    {"start":38, "length":0.25, "note":"F4", "sound":"Sound1"},\n    {"start":38, "length":0.25, "note":"A4", "sound":"Sound1"},\n    {"start":38, "length":0.5, "note":"F5", "sound":"Sound2"},\n    {"start":38.5, "length":0.5, "note":"G5", "sound":"Sound2"},\n    {"start":39, "length":2, "note":"F3", "sound":"Sound1"},\n    {"start":39, "length":2, "note":"A5", "sound":"Sound2"},\n    {"start":40, "length":2, "note":"E4", "sound":"Sound1"},\n    {"start":40, "length":2, "note":"A4", "sound":"Sound1"},\n    {"start":42, "length":2, "note":"A#3", "sound":"Sound1"},\n    {"start":42, "length":1, "note":"A5", "sound":"Sound2"},\n    {"start":43, "length":0.25, "note":"F4", "sound":"Sound1"},\n    {"start":43, "length":0.25, "note":"A4", "sound":"Sound1"},\n    {"start":43, "length":1, "note":"D5", "sound":"Sound2"},\n    {"start":44, "length":0.25, "note":"F4", "sound":"Sound1"},\n    {"start":44, "length":0.25, "note":"A4", "sound":"Sound1"},\n    {"start":44, "length":0.5, "note":"F5", "sound":"Sound2"},\n    {"start":44.5, "length":0.5, "note":"G5", "sound":"Sound2"},\n    {"start":45, "length":2, "note":"A3", "sound":"Sound1"},\n    {"start":45, "length":2, "note":"E5", "sound":"Sound2"},\n    {"start":46, "length":2, "note":"E4", "sound":"Sound1"},\n    {"start":46, "length":2, "note":"A4", "sound":"Sound1"},\n    {"start":48, "length":2, "note":"D3", "sound":"Sound1"},\n    {"start":48, "length":0.5, "note":"D5", "sound":"Sound2"},\n    {"start":48.5, "length":0.5, "note":"F5", "sound":"Sound2"},\n    {"start":49, "length":0.25, "note":"F4", "sound":"Sound1"},\n    {"start":49, "length":0.25, "note":"A4", "sound":"Sound1"},\n    {"start":49, "length":2, "note":"D6", "sound":"Sound2"},\n    {"start":49.875, "length":0.25, "note":"F4", "sound":"Sound1"},\n    {"start":50, "length":0.25, "note":"A4", "sound":"Sound1"},\n    {"start":51, "length":2, "note":"E3", "sound":"Sound1"},\n    {"start":51, "length":0.5, "note":"D5", "sound":"Sound2"},\n    {"start":51.5, "length":0.5, "note":"E4", "sound":"Sound1"},\n    {"start":51.5, "length":0.5, "note":"F5", "sound":"Sound2"},\n    {"start":52, "length":2, "note":"G4", "sound":"Sound1"},\n    {"start":52, "length":2, "note":"B4", "sound":"Sound1"},\n    {"start":52, "length":2, "note":"D6", "sound":"Sound2"},\n    {"start":54, "length":2, "note":"F3", "sound":"Sound1"},\n    {"start":54, "length":1, "note":"E6", "sound":"Sound2"},\n    {"start":55, "length":0.25, "note":"A4", "sound":"Sound1"},\n    {"start":55, "length":0.25, "note":"C5", "sound":"Sound1"},\n    {"start":55.5, "length":0.5, "note":"F6", "sound":"Sound2"},\n    {"start":56, "length":0.25, "note":"A4", "sound":"Sound1"},\n    {"start":56, "length":0.25, "note":"C5", "sound":"Sound1"},\n    {"start":56, "length":0.5, "note":"E6", "sound":"Sound2"},\n    {"start":56.5, "length":0.5, "note":"F6", "sound":"Sound2"},\n    {"start":57, "length":2, "note":"E3", "sound":"Sound1"},\n    {"start":57, "length":0.5, "note":"E6", "sound":"Sound2"},\n    {"start":57.5, "length":0.5, "note":"E4", "sound":"Sound1"},\n    {"start":57.5, "length":0.5, "note":"C6", "sound":"Sound2"},\n    {"start":58, "length":2, "note":"G4", "sound":"Sound1"},\n    {"start":58, "length":2, "note":"B4", "sound":"Sound1"},\n    {"start":58, "length":2, "note":"A5", "sound":"Sound2"},\n    {"start":60, "length":2, "note":"A#3", "sound":"Sound1"},\n    {"start":60, "length":1, "note":"A5", "sound":"Sound2"},\n    {"start":61, "length":0.25, "note":"F4", "sound":"Sound1"},\n    {"start":61, "length":0.25, "note":"A4", "sound":"Sound1"},\n    {"start":61, "length":1, "note":"D5", "sound":"Sound2"},\n    {"start":61.875, "length":0.25, "note":"F4", "sound":"Sound1"},\n    {"start":62, "length":0.25, "note":"A4", "sound":"Sound1"},\n    {"start":62, "length":0.5, "note":"F5", "sound":"Sound2"},\n    {"start":62.5, "length":0.5, "note":"G5", "sound":"Sound2"},\n    {"start":63, "length":2, "note":"A3", "sound":"Sound1"},\n    {"start":63, "length":2, "note":"A5", "sound":"Sound2"},\n    {"start":64, "length":2, "note":"E4", "sound":"Sound1"},\n    {"start":64, "length":2, "note":"A4", "sound":"Sound1"},\n    {"start":65, "length":1, "note":"A5", "sound":"Sound2"},\n    {"start":66, "length":2, "note":"F3", "sound":"Sound1"},\n    {"start":66, "length":4, "note":"D5", "sound":"Sound2"},\n    {"start":67, "length":0.25, "note":"F4", "sound":"Sound1"},\n    {"start":67, "length":0.25, "note":"A4", "sound":"Sound1"},\n    {"start":68, "length":0.25, "note":"F4", "sound":"Sound1"},\n    {"start":68, "length":0.25, "note":"A4", "sound":"Sound1"},\n    {"start":69, "length":2, "note":"E3", "sound":"Sound1"},\n    {"start":69.5, "length":0.5, "note":"E4", "sound":"Sound1"},\n    {"start":70, "length":2, "note":"G4", "sound":"Sound1"},\n    {"start":70, "length":2, "note":"B4", "sound":"Sound1"},\n  ],\n  "bpm": 200,\n  "measures": 18\n}';
+  getEle("loadJson").value = text;
+}
+
+</script>
+</body>
+</html>

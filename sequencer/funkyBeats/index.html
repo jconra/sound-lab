@@ -1,0 +1,953 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Random Waveform Oscillator</title>
+  <style>
+    body { 
+      font-family: Arial, sans-serif; 
+      padding: 0; 
+      margin: 0;
+      background: #000000; 
+      color: #fff; 
+      overflow-x: hidden;
+    }
+    .content {
+      margin: 60px 60px;
+      padding: 20px;
+    }
+    .waveform-top, .waveform-bottom {
+      position: fixed;
+      left: 0;
+      width: 100%;
+      height: 60px;
+      background: #000;
+      z-index: 1001;
+    }
+    .waveform-top { top: 0; }
+    .waveform-bottom { bottom: 0; }
+    
+    .spectrum-left, .spectrum-right {
+      position: fixed;
+      top: 0;
+      bottom: 0;
+      width: 60px;
+      height: 100%;
+      background: #000;
+      z-index: 1000;
+    }
+    .spectrum-left { left: 0; }
+    .spectrum-right { right: 0; }
+    
+    button {
+      background: #333;
+      color: #fff;
+      border: 1px solid #555;
+      padding: 10px 20px;
+      margin: 5px;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #555;
+    }
+    p {
+      margin: 10px 0;
+    }
+    #editor {
+      position: fixed;
+      height: 100%;
+      width: 100%;
+      z-index: 2000;
+      display: none;
+      top: 0px;
+    }
+		#import {
+		  position: fixed;
+      height: 100%;
+      width: 100%;
+      z-index: 2000;
+      display: none;
+      top: 0px;
+			textAlign: center;
+			padding: 5%
+		}
+		textarea {
+		  background-color: black;
+			color: white;
+			width: 90%;
+			height: 90%;
+		}0
+  </style>
+</head>
+<body>
+  <!-- Visualization canvases -->
+  <canvas class="waveform-top" id="waveformTop" width="100%" height="40"></canvas>
+  <canvas class="waveform-bottom" id="waveformBottom" width="100%" height="40"></canvas>
+  <canvas class="spectrum-left" id="spectrumLeft" width="60" height="100%"></canvas>
+  <canvas class="spectrum-right" id="spectrumRight" width="60" height="100%"></canvas>
+  <canvas id="editor"></canvas>
+	<div id="import">
+	  <textarea id="importTextarea"></textarea><br>
+		<span>
+		  <button id="closeImport" onclick="closeImport()">Export</button>
+		  <button onclick="loadDiffMelody()">For Example</button>
+		</span>
+  </div>
+  
+  <div class="content">
+    <h1>Random Waveform Oscillator</h1>
+    
+    <button id="randomize" onclick="randomize()">Randomize</button>
+    <button id="toggleMelody">Play</button>
+    <button id="editMelody">Edit Melody</button>
+		<button id="io" onclick="openImport()">Import/Export</button>
+    <label>Tempo: <input type="range" id="tempo" min="80" max="180" value="120"></label>
+		<label>Drums: <input type="range" id="drums" min="0" max="100" value="50"></label>
+    <label>Melody: <input type="range" id="melody" min="0" max="100" value="50"></label><br>
+    <label>Automatically randomize each loop <input type="checkbox" id="autoRand"></lable>
+  
+  <div style="margin: 15px 0;">
+    
+    <!-- ADDITIVE SYNTHESIS -->
+    <div style="margin-bottom: 20px; padding: 10px; border: 1px solid #ff0000; border-radius: 5px;">
+      <h3 style="color: #ff0000; margin: 0 0 8px 0;">ADDITIVE SYNTHESIS</h3>
+      <p style="margin: 0 0 10px 0; font-size: 12px; color: #ccc;">
+        Builds complex sounds by adding sine wave harmonics together. More harmonics = richer sound. 
+        Higher falloff = fewer high frequencies = warmer tone. Scale type affects which harmonics are boosted.
+      </p>
+      <div style="display: grid; grid-template-columns: 1fr 200px 60px; gap: 10px; align-items: center;">
+        <label>Mix (0-100%): <input type="range" id="additive" min="0" max="100" value="50"></label>
+        <span style="font-size: 11px;">Overall intensity of additive synthesis</span>
+        <span id="additive-val" style="color: #ff0000;">50</span>
+        
+        <label>Harmonics (4-64): <input type="range" id="harmonics" min="4" max="64" value="32"></label>
+        <span style="font-size: 11px;">Number of harmonic overtones</span>
+        <span id="harmonics-val" style="color: #ff0000;">32</span>
+        
+        <label>Falloff (0.5-4): <input type="range" id="addFalloff" min="0.5" max="4" step="0.1" value="2"></label>
+        <span style="font-size: 11px;">High frequency rolloff rate</span>
+        <span id="addFalloff-val" style="color: #ff0000;">2.0</span>
+        
+        <label>Scale (0-1): <input type="range" id="scaleType" min="0" max="1" value="0"></label>
+        <span style="font-size: 11px;">0=chromatic, 1=pentatonic musical</span>
+        <span id="scaleType-val" style="color: #ff0000;">0</span>
+      </div>
+    </div>
+    
+    <!-- FM SYNTHESIS -->
+    <div style="margin-bottom: 20px; padding: 10px; border: 1px solid #ff8e00; border-radius: 5px;">
+      <h3 style="color: #ff8e00; margin: 0 0 8px 0;">FM SYNTHESIS</h3>
+      <p style="margin: 0 0 10px 0; font-size: 12px; color: #ccc;">
+        Uses frequency modulation to create complex sidebands. Carrier sets base frequency relationship. 
+        Modulator controls rate. Higher depth = more metallic, bell-like tones.
+      </p>
+      <div style="display: grid; grid-template-columns: 1fr 200px 60px; gap: 10px; align-items: center;">
+        <label>Mix (0-100%): <input type="range" id="fm" min="0" max="100" value="50"></label>
+        <span style="font-size: 11px;">Overall intensity of FM synthesis</span>
+        <span id="fm-val" style="color: #ff8e00;">50</span>
+        
+        <label>Carrier (1-8): <input type="range" id="fmCarrier" min="1" max="8" value="4"></label>
+        <span style="font-size: 11px;">Base frequency multiplier</span>
+        <span id="fmCarrier-val" style="color: #ff8e00;">4</span>
+        
+        <label>Modulator (1-8): <input type="range" id="fmModulator" min="1" max="8" value="4"></label>
+        <span style="font-size: 11px;">Modulation frequency rate</span>
+        <span id="fmModulator-val" style="color: #ff8e00;">4</span>
+        
+        <label>Depth (0.5-3): <input type="range" id="fmDepth" min="0.5" max="3" step="0.1" value="1.5"></label>
+        <span style="font-size: 11px;">Modulation intensity</span>
+        <span id="fmDepth-val" style="color: #ff8e00;">1.5</span>
+        
+        <label>Chain (0-2): <input type="range" id="fmChain" min="0" max="2" step="0.1" value="0"></label>
+        <span style="font-size: 11px;">Modulator-to-modulator feedback</span>
+        <span id="fmChain-val" style="color: #ff8e00;">0.0</span>
+      </div>
+    </div>
+    
+    <!-- HARMONIC SYNTHESIS -->
+    <div style="margin-bottom: 20px; padding: 10px; border: 1px solid #ffff00; border-radius: 5px;">
+      <h3 style="color: #ffff00; margin: 0 0 8px 0;">HARMONIC SYNTHESIS</h3>
+      <p style="margin: 0 0 10px 0; font-size: 12px; color: #ccc;">
+        Creates musical timbres based on chord intervals. Chord type determines harmonic ratios. 
+        Spread controls relative volume of harmonics across octaves.
+      </p>
+      <div style="display: grid; grid-template-columns: 1fr 200px 60px; gap: 10px; align-items: center;">
+        <label>Mix (0-100%): <input type="range" id="harmonic" min="0" max="100" value="50"></label>
+        <span style="font-size: 11px;">Overall intensity of harmonic synthesis</span>
+        <span id="harmonic-val" style="color: #ffff00;">50</span>
+        
+        <label>Chord (0-3): <input type="range" id="chordType" min="0" max="3" value="0"></label>
+        <span style="font-size: 11px;">0=triad, 1=maj7, 2=sus4, 3=add9</span>
+        <span id="chordType-val" style="color: #ffff00;">0</span>
+        
+        <label>Spread (0.5-3): <input type="range" id="harSpread" min="0.5" max="3" step="0.1" value="1.5"></label>
+        <span style="font-size: 11px;">Harmonic volume across octaves</span>
+        <span id="harSpread-val" style="color: #ffff00;">1.5</span>
+      </div>
+    </div>
+    
+    <!-- NOISE SYNTHESIS -->
+    <div style="margin-bottom: 20px; padding: 10px; border: 1px solid #00ff00; border-radius: 5px;">
+      <h3 style="color: #00ff00; margin: 0 0 8px 0;">NOISE SYNTHESIS</h3>
+      <p style="margin: 0 0 10px 0; font-size: 12px; color: #ccc;">
+        Mixes pure tonal components with noise-like textures. More tones = richer harmonic content. 
+        Higher noise amount = grittier, less pitched texture.
+      </p>
+      <div style="display: grid; grid-template-columns: 1fr 200px 60px; gap: 10px; align-items: center;">
+        <label>Mix (0-100%): <input type="range" id="noise" min="0" max="100" value="50"></label>
+        <span style="font-size: 11px;">Overall intensity of noise synthesis</span>
+        <span id="noise-val" style="color: #00ff00;">50</span>
+        
+        <label>Tones (1-10): <input type="range" id="noiseTones" min="1" max="10" value="4"></label>
+        <span style="font-size: 11px;">Number of pure frequency components</span>
+        <span id="noiseTones-val" style="color: #00ff00;">4</span>
+        
+        <label>Amount (10-90%): <input type="range" id="noiseAmount" min="10" max="90" value="50"></label>
+        <span style="font-size: 11px;">Balance between tonal and noisy</span>
+        <span id="noiseAmount-val" style="color: #00ff00;">50</span>
+      </div>
+    </div>
+		
+    
+    <!-- ADSR ENVELOPE -->
+    <div style="margin-bottom: 20px; padding: 10px; border: 1px solid #5599ff; border-radius: 5px;">
+      <h3 style="color: #5599ff; margin: 0 0 8px 0;">ADSR ENVELOPE</h3>
+      <p style="margin: 0 0 10px 0; font-size: 12px; color: #ccc;">
+        Controls volume envelope over time. Attack = fade in time, Decay = drop to sustain time, 
+        Sustain = held volume level, Release = fade out time after key release.
+      </p>
+      <div style="display: grid; grid-template-columns: 1fr 200px 60px; gap: 10px; align-items: center;">
+        <label>Attack (0.01-1s): <input type="range" id="attack" min="0.01" max="1" step="0.01" value="0.05"></label>
+        <span style="font-size: 11px;">Time to reach full volume</span>
+        <span id="attack-val" style="color: #5599ff;">0.05</span>
+        
+        <label>Decay (0.01-1s): <input type="range" id="decay" min="0.01" max="1" step="0.01" value="0.1"></label>
+        <span style="font-size: 11px;">Time to drop to sustain level</span>
+        <span id="decay-val" style="color: #5599ff;">0.10</span>
+        
+        <label>Sustain (0-1): <input type="range" id="sustain" min="0" max="1" step="0.01" value="0.6"></label>
+        <span style="font-size: 11px;">Held volume level (0-100%)</span>
+        <span id="sustain-val" style="color: #5599ff;">0.60</span>
+        
+        <label>Release (0.01-2s): <input type="range" id="release" min="0.01" max="2" step="0.01" value="0.3"></label>
+        <span style="font-size: 11px;">Fade out time after key release</span>
+        <span id="release-val" style="color: #5599ff;">0.30</span>
+      </div>
+    </div>
+    
+    <!-- FILTER -->
+    <div style="margin-bottom: 20px; padding: 10px; border: 1px solid #6b44ff; border-radius: 5px;">
+      <h3 style="color: #6b44ff; margin: 0 0 8px 0;">FILTER (POST-PROCESSING)</h3>
+      <p style="margin: 0 0 10px 0; font-size: 12px; color: #ccc;">
+        Applies after synthesis mixing. Allows frequencies Higher or Lower to pass through. 
+        Higher Q = narrower band. Mix controls wet/dry blend of filtered vs original signal.
+      </p>
+      <div style="display: grid; grid-template-columns: 1fr 200px 60px; gap: 10px; align-items: center;">
+        <label>Filter (None, LowPass, HighPass) <input type="range" id="filterType" min="0" max="2" step="1" value="0"></label>
+        <span style="font-size: 11px;">0=None, 1=LowPass, 2=HighPass</span>
+        <span id="filterType-val" style="color: #6b44ff;">0</span>
+        
+        <label>Frequency (50-2000): <input type="range" id="filterFreq" min="50" max="2000" value="800"></label>
+        <span style="font-size: 11px;">Center frequency of filter</span>
+        <span id="filterFreq-val" style="color: #6b44ff;">800</span>
+        
+        <label>Q Factor (0.5-20): <input type="range" id="filterQ" min="0.5" max="20" step="0.1" value="1"></label>
+        <span style="font-size: 11px;">Filter bandwidth (higher = narrower)</span>
+        <span id="filterQ-val" style="color: #6b44ff;">1.0</span>
+      </div>
+    </div>
+    
+    <!-- BIT CRUSHER -->
+    <div style="margin-bottom: 20px; padding: 10px; border: 1px solid #9400d3; border-radius: 5px;">
+      <h3 style="color: #9400d3; margin: 0 0 8px 0;">BIT CRUSHER (POST-PROCESSING)</h3>
+      <p style="margin: 0 0 10px 0; font-size: 12px; color: #ccc;">
+        Digital distortion effect that reduces bit depth and Frequency Reduction. Lower bits = more distortion. 
+        Higher Frequency Reduction = aliasing artifacts. Mix controls wet/dry blend.
+      </p>
+      <div style="display: grid; grid-template-columns: 1fr 200px 60px; gap: 10px; align-items: center;">
+        <label>Mix (0-100%): <input type="range" id="bitcrushMix" min="0" max="100" value="0"></label>
+        <span style="font-size: 11px;">Wet/dry mix of bit crusher effect</span>
+        <span id="bitcrushMix-val" style="color: #9400d3;">0</span>
+        
+        <label>Bit Depth (1-16): <input type="range" id="bitDepth" min="1" max="16" value="8"></label>
+        <span style="font-size: 11px;">Number of bits (lower = more distortion)</span>
+        <span id="bitDepth-val" style="color: #9400d3;">8</span>
+        
+        <label>Frequency Reduction (1-40): <input type="range" id="sampleRate" min="1" max="40" step="1" value="1"></label>
+        <span style="font-size: 11px;">Frequency Reduction Ratio (higher = more aliasing)</span>
+        <span id="sampleRate-val" style="color: #9400d3;">22050</span>
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    let audioContext;
+    let oscillator;
+    let customWave;
+    let analyser;
+    let animationId;
+    let waveTopCanvas = document.getElementById('waveformTop');
+    let waveBottomCanvas = document.getElementById('waveformBottom');
+    let specLeftCanvas = document.getElementById('spectrumLeft');
+    let specRightCanvas = document.getElementById('spectrumRight');
+    let editorCanvas = document.getElementById('editor');
+    let editorCtx = editorCanvas.getContext('2d');
+    let waveTopCtx = waveTopCanvas.getContext('2d');
+    let waveBottomCtx = waveBottomCanvas.getContext('2d');
+    let specLeftCtx = specLeftCanvas.getContext('2d');
+    let specRightCtx = specRightCanvas.getContext('2d');
+    let isPlaying = false;
+    let melodyTimeout;
+    let drumStep = 0;
+		let bars = 4;
+		let bitCrusher;
+    let tempoMultiplier = 1;
+		let real, imag;
+    let manualParams = {
+      additive: 50, fm: 50, harmonic: 50, noise: 50,
+      harmonics: 32, addFalloff: 2, scaleType: 0,
+      filterType: 0, filterFreq: 800, filterQ: 1,
+      fmCarrier: 4, fmModulator: 4, fmDepth: 1.5, fmChain: 0,
+      chordType: 0, harSpread: 1.5,
+      noiseTones: 4, noiseAmount: 50,
+      bitcrushMix: 0, bitDepth: 8, sampleRate: 1,
+      attack: 0.05, decay: 0.1, sustain: 0.6, release: 0.3
+    };
+    
+    const notes = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+    const melody = [
+        {'note':'K', 'time': 0},
+        {'note':'K', 'time': 4},
+        {'note':'K', 'time': 8},
+        {'note':'K', 'time': 12},
+        {'note':'S', 'time': 4},
+        {'note':'S', 'time': 12},
+        {'note':'H', 'time': 0},
+        {'note':'H', 'time': 2},
+        {'note':'H', 'time': 4},
+        {'note':'H', 'time': 6},
+        {'note':'H', 'time': 8},
+        {'note':'H', 'time': 10},
+        {'note':'H', 'time': 12},
+        {'note':'H', 'time': 14},
+        {'note':'A1', 'time': 0},
+        {'note':'A2', 'time': 2},
+        {'note':'F1', 'time': 4},
+        {'note':'F2', 'time': 6},
+        {'note':'C2', 'time': 8},
+        {'note':'E2', 'time': 10},
+        {'note':'G1', 'time': 12},
+        {'note':'D2', 'time': 14}
+      ];
+
+    // Drum machine tempo: 120 BPM = 500ms per beat, 125ms per 16th note
+    let tempo = 120;
+    let stepDuration = (60 / tempo / 4) * 1000; // 125ms at 120 BPM
+
+    function createRandomWaveform() {
+      const waveSize = 256;
+      real = new Float32Array(waveSize);
+      imag = new Float32Array(waveSize);
+      
+      // Always apply all synthesis types with varying intensities
+      const intensities = {
+        additive: manualParams.additive / 100,
+        fm: manualParams.fm / 100,
+        harmonic: manualParams.harmonic / 100,
+        noise: manualParams.noise / 100
+      };
+      
+      let settings = { 
+        add: Math.round(intensities.additive * 100) + '%',
+        fm: Math.round(intensities.fm * 100) + '%',
+        har: Math.round(intensities.harmonic * 100) + '%',
+        noi: Math.round(intensities.noise * 100) + '%'
+      };
+      
+      // ADDITIVE SYNTHESIS
+      if (intensities.additive > 0) {
+        const numHarmonics = manualParams.harmonics;
+        const falloffRate = manualParams.addFalloff;
+        const scaleType = manualParams.scaleType > 0.5 ? 'pentatonic' : 'chromatic';
+        
+        settings.harmonics = numHarmonics;
+        settings.falloff = falloffRate.toFixed(2);
+        settings.scale = scaleType;
+        
+        const pentatonicRatios = [1, 9/8, 5/4, 3/2, 27/16];
+        
+        for (let i = 1; i < numHarmonics; i++) {
+          let amplitude = (1 / Math.pow(i, falloffRate)) * intensities.additive;
+          
+          if (scaleType === 'pentatonic') {
+            const ratio = i / 1;
+            if (pentatonicRatios.some(r => Math.abs(ratio - r) < 0.1)) {
+              amplitude *= 2;
+            }
+          } else {
+            if (i % 2 === 0 || i % 3 === 0) amplitude *= 1.5;
+          }
+          
+          real[i] += (Math.random() * 2 - 1) * amplitude;
+          imag[i] += (Math.random() * 2 - 1) * amplitude;
+        }
+      }
+      
+      // FM SYNTHESIS
+      if (intensities.fm > 0) {
+        const carrier = manualParams.fmCarrier;
+        const modulator = manualParams.fmModulator;
+        const modDepth = manualParams.fmDepth;
+        const chainDepth = manualParams.fmChain;
+        
+        settings.carrier = carrier;
+        settings.modulator = modulator;
+        settings.depth = modDepth.toFixed(2);
+        settings.chain = chainDepth.toFixed(2);
+        
+        for (let i = 1; i < 32; i++) {
+          const modAmount = Math.sin(i * modulator * Math.PI / 16) * modDepth;
+          
+          // Add chained modulation - modulator modulates itself
+          const chainAmount = chainDepth > 0 ? 
+            Math.sin(i * modulator * modulator * Math.PI / 32) * chainDepth : 0;
+          
+          const totalMod = modAmount + chainAmount;
+          const amplitude = ((1 / i) * (1 + totalMod) * intensities.fm);
+          
+          real[i] += (Math.random() * 2 - 1) * Math.abs(amplitude);
+          imag[i] += (Math.random() * 2 - 1) * Math.abs(amplitude);
+        }
+      }
+      
+      // HARMONIC SYNTHESIS
+      if (intensities.harmonic > 0) {
+        const chords = [[1,3,5], [1,3,5,7], [1,4,5], [1,2,5]];
+        const chord = chords[Math.floor(manualParams.chordType)];
+        const spread = manualParams.harSpread;
+        
+        settings.chord = chord.join('-');
+        settings.spread = spread.toFixed(2);
+        
+        chord.forEach((interval, idx) => {
+          for (let octave = 1; octave <= 4; octave++) {
+            const harmonic = interval * octave;
+            if (harmonic < 64) {
+              const amplitude = ((1 / octave) * spread * intensities.harmonic);
+              real[harmonic] += (Math.random() * 2 - 1) * amplitude;
+              imag[harmonic] += (Math.random() * 2 - 1) * amplitude;
+            }
+          }
+        });
+      }
+      
+      // NOISE SYNTHESIS
+      if (intensities.noise > 0) {
+        const noiseAmount = manualParams.noiseAmount / 100;
+        const toneCount = manualParams.noiseTones;
+        
+        settings.tones = toneCount;
+        settings.noiseAmt = Math.round(noiseAmount * 100) + '%';
+        
+        for (let i = 0; i < toneCount; i++) {
+          const harmonic = Math.floor(Math.random() * 32) + 1;
+          real[harmonic] += (Math.random() * 2 - 1) * ((1 - noiseAmount) * intensities.noise);
+          imag[harmonic] += (Math.random() * 2 - 1) * ((1 - noiseAmount) * intensities.noise);
+        }
+        
+        for (let i = 1; i < 64; i++) {
+          if (Math.random() < noiseAmount) {
+            real[i] += (Math.random() * 2 - 1) * (noiseAmount * 0.5 * intensities.noise);
+            imag[i] += (Math.random() * 2 - 1) * (noiseAmount * 0.5 * intensities.noise);
+          }
+        }
+      }
+      
+      customWave = audioContext.createPeriodicWave(real, imag);
+    }
+
+    function kickDrum(time) {
+      // Kick drum - low frequency sine wave with pitch envelope
+      const osc = audioContext.createOscillator();
+      const gain = audioContext.createGain();
+      
+      osc.frequency.setValueAtTime(60, time);
+      osc.frequency.exponentialRampToValueAtTime(0.01, time + 0.5);
+      
+      gain.gain.setValueAtTime(3 * document.getElementById("drums").value/100, time);
+      gain.gain.exponentialRampToValueAtTime(0.01, time + 0.5);
+      
+      osc.connect(gain);
+      gain.connect(audioContext.destination);
+      osc.start(time);
+      osc.stop(time + 0.5);
+      
+    } 
+      
+    function snareDrum(time) {
+      // Snare drum - white noise with bandpass filter
+      const bufferSize = audioContext.sampleRate * 0.2;
+      const buffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
+      const data = buffer.getChannelData(0);
+      
+      for (let i = 0; i < bufferSize; i++) {
+        data[i] = Math.random() * 2 - 1;
+      }
+      
+      const noise = audioContext.createBufferSource();
+      noise.buffer = buffer;
+      
+      const filter = audioContext.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.value = 200;
+      
+      const gain = audioContext.createGain();
+      gain.gain.setValueAtTime(3*document.getElementById("drums").value/100, time);
+      gain.gain.exponentialRampToValueAtTime(0.01, time + 0.2);
+      
+      noise.connect(filter);
+      filter.connect(gain);
+      gain.connect(audioContext.destination);
+      noise.start(time);
+      
+    } 
+    
+    function hiHat(time) {
+      // Hi-hat - filtered white noise
+      const bufferSize = audioContext.sampleRate * 0.1;
+      const buffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
+      const data = buffer.getChannelData(0);
+      
+      for (let i = 0; i < bufferSize; i++) {
+        data[i] = Math.random() * 2 - 1;
+      }
+      
+      const noise = audioContext.createBufferSource();
+      noise.buffer = buffer;
+      
+      const filter = audioContext.createBiquadFilter();
+      filter.type = 'highpass';
+      filter.frequency.value = 8000;
+      
+      const gain = audioContext.createGain();
+      gain.gain.setValueAtTime(0.3*document.getElementById("drums").value/100, time);
+      gain.gain.exponentialRampToValueAtTime(0.01, time + 0.1);
+      
+      noise.connect(filter);
+      filter.connect(gain);
+      gain.connect(audioContext.destination);
+      noise.start(time);
+    }
+		
+		const bitCrunchProcessorCode = `
+			class BitcrusherProcessor extends AudioWorkletProcessor {
+				static get parameterDescriptors() {
+				return [
+					{ name: 'bitDepth', defaultValue: 8, minValue: 1, maxValue: 16 },
+					{ name: 'frequencyReduction', defaultValue: 1, minValue: 1, maxValue: 40 },
+					{ name: 'mix', defaultValue: 1, minValue: 0, maxValue: 1 }
+				];
+				}
+				constructor() {
+					super();
+					this.phase = 0;
+					this.lastSample = 0;
+				}
+				process(inputs, outputs, parameters) {
+					const input = inputs[0];
+					const output = outputs[0];
+					const bitDepth = parameters.bitDepth;
+					const reduction = parameters.frequencyReduction;
+					const mix = parameters.mix;
+
+					for (let channel = 0; channel < input.length; channel++) {
+						const inputChannel = input[channel];
+						const outputChannel = output[channel];
+						for (let i = 0; i < inputChannel.length; i++) {
+						  const drySample = inputChannel[i];
+							this.phase += 1 / (reduction.length > 1 ? reduction[i] : reduction);
+							if (this.phase >= 1) {
+								this.phase -= 1;
+								const depth = bitDepth.length > 1 ? bitDepth[i] : bitDepth;
+								const step = Math.pow(0.5, depth);
+								this.lastSample = step * Math.floor(inputChannel[i] / step);
+							}
+							const wetSample = this.lastSample;
+							const currentMix = mix.length > 1 ? mix[i] : mix[0];
+
+							// Linear Blend: (Dry * (1 - Mix)) + (Wet * Mix)
+							outputChannel[i] = (drySample * (1 - currentMix)) + (wetSample * currentMix);
+						}
+					}
+					return true;
+				}
+			}
+			registerProcessor('bitcrusher-processor', BitcrusherProcessor);
+		`;
+				
+    function playNote(frequency, duration = stepDuration) {
+      if (oscillator) oscillator.stop();
+      
+      oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      
+      oscillator.setPeriodicWave(customWave);
+      oscillator.frequency.value = frequency;
+      oscillator.connect(gainNode);
+      
+      let currentNode = gainNode;
+      
+      // POST-PROCESSING: Apply filter if enabled
+      if (manualParams.filterType > 0) {
+        const biquadFilter = audioContext.createBiquadFilter();
+        biquadFilter.type = ["None", "lowpass", "highpass"][manualParams.filterType];
+        biquadFilter.frequency.value = manualParams.filterFreq;
+        biquadFilter.Q.value = manualParams.filterQ;
+        currentNode.connect(biquadFilter);
+        currentNode = biquadFilter;
+      }
+
+			// POST-PROCESSING: Apply bit crusher if enabled
+			if (manualParams.bitcrushMix > 0) {
+			  bitCrusher.parameters.get('mix').setValueAtTime(manualParams.bitcrushMix / 100, audioContext.currentTime);
+				bitCrusher.parameters.get('bitDepth').setValueAtTime(manualParams.bitDepth, audioContext.currentTime);
+				bitCrusher.parameters.get('frequencyReduction').setValueAtTime(manualParams.sampleRate, audioContext.currentTime);
+				currentNode.connect(bitCrusher);
+				currentNode = bitCrusher;
+      }
+      
+      currentNode.connect(analyser);
+      analyser.connect(audioContext.destination);
+      
+      // ADSR envelope - extend note duration to accommodate envelope
+      const now = audioContext.currentTime;
+      const attackTime = Math.max(0.001, manualParams.attack);
+      const decayTime = Math.max(0.001, manualParams.decay);
+      const releaseTime = Math.max(0.001, manualParams.release);
+      
+
+      const peakVolume = document.getElementById("melody").value/100;
+      const sustainLevel = manualParams.sustain * peakVolume;
+      
+      // Ensure note is long enough for the full envelope
+      const minNoteDuration = attackTime + decayTime + releaseTime + 0.1;
+      const noteDuration = Math.max(minNoteDuration, duration/1000);
+      
+      gainNode.gain.setValueAtTime(0, now);
+      gainNode.gain.linearRampToValueAtTime(peakVolume, now + attackTime);  // Attack
+      gainNode.gain.linearRampToValueAtTime(sustainLevel, now + attackTime + decayTime);  // Decay
+      gainNode.gain.setValueAtTime(sustainLevel, now + noteDuration - releaseTime);  // Sustain
+      gainNode.gain.linearRampToValueAtTime(0, now + noteDuration);  // Release
+      
+      oscillator.start(now);
+      oscillator.stop(now + noteDuration);
+    }
+    
+    function toggleMelody() {
+      document.getElementById("toggleMelody").innerHTML = (isPlaying)? "Play":"Stop";
+      if (isPlaying) {
+        clearTimeout(melodyTimeout);
+        if (oscillator) {
+          oscillator.stop();
+          oscillator = null;
+        }
+        isPlaying = false;
+      } else {
+        playMelody()
+      }
+    }
+
+    function playMelody() {
+      if (!audioContext) {
+        audioContext = new AudioContext();
+        analyser = audioContext.createAnalyser();
+        analyser.fftSize = 256;
+        createRandomWaveform();
+				
+        const dataUrl = "data:application/javascript;base64," + btoa(bitCrunchProcessorCode);
+        audioContext.audioWorklet.addModule( dataUrl ).then(() => {
+          bitCrusher = new AudioWorkletNode( audioContext , 'bitcrusher-processor', {} );
+        }).catch(err => {
+          console.error("Failed to load worklet:", err);
+        });
+      }
+      
+      isPlaying = true;
+      drumStep = 0;
+      
+      function playNextStep() {
+        if (!isPlaying) return;
+        
+        for (let m of melody) {
+          if (m.time == drumStep) {
+            if (m.note == 'K') kickDrum(audioContext.currentTime);
+            else if (m.note == 'S') snareDrum(audioContext.currentTime);
+            else if (m.note == 'H') hiHat(audioContext.currentTime);
+            else playNote(noteToFreq(m.note));
+          }
+        }
+        
+        drumStep = (drumStep + 1) % (bars * 4);
+				if (drumStep == 0 && document.getElementById("autoRand").checked) randomize();
+        
+        melodyTimeout = setTimeout(playNextStep, stepDuration);
+				if (editorCanvas.style.display == "block") drawEditor();
+      }
+      
+      playNextStep();
+      drawVisuals();
+    }
+
+    function noteToFreq(note) {
+      for (let i=0; i<80; i++) {
+        let freq = Math.floor(27.5*Math.pow(Math.pow(2,1/12),i+3)+0.5);
+        if (note.toUpperCase() == notes[i%12]+(Math.floor(i/12)+1)) return freq;
+      }
+    }
+
+    function drawVisuals() {
+      const bufferLength = analyser.frequencyBinCount;
+      const dataArray = new Uint8Array(bufferLength);
+      analyser.getByteFrequencyData(dataArray);
+      
+      let height = specLeftCanvas.height = specRightCanvas.height = window.innerHeight;
+      let width = specLeftCanvas.width = specRightCanvas.width = 60;
+      
+      // Left border - low frequencies at bottom, high at top
+      specLeftCtx.clearRect(0, 0, 60, height);
+      
+      const barHeight = height / dataArray.length * 2;
+      for (let i = 0; i < dataArray.length; i++) {
+        const barWidth = (dataArray[i] / 255) * 60;
+        const y = height - (i + 1) * barHeight; // Flip so low freq at bottom
+        specLeftCtx.fillStyle = "hsl(" + (i * 4) + ", 100%, 50%)";
+        specLeftCtx.fillRect(30 - barWidth/2, y, barWidth, barHeight);
+      }
+      
+      // Copy to Right Side
+      specRightCtx.clearRect(0, 0, 60, height);
+      specRightCtx.drawImage(specLeftCanvas, 0, 0);
+      
+      
+      // Top Border - Wave Data
+      analyser.getByteTimeDomainData(dataArray);
+      
+      height = waveTopCanvas.height = waveBottomCanvas.height = 40;
+      width = waveTopCanvas.width = waveBottomCanvas.width = window.innerWidth;
+      
+      waveTopCtx.clearRect(0, 0, width, 60);
+      waveTopCtx.lineWidth = 2;
+      
+      const stepWidth = width / dataArray.length;
+      for (let i = 0; i < dataArray.length; i++) {
+        waveTopCtx.beginPath();
+        waveTopCtx.moveTo(i * stepWidth, dataArray[i]/2-40);
+        waveTopCtx.lineTo((i + 1) * stepWidth, dataArray[i + 1]/2-40);
+        waveTopCtx.strokeStyle = "hsl(" + (i * 2) + ", 100%, 50%)";
+        waveTopCtx.stroke()
+      }
+
+      // Copy to bottom
+      waveBottomCtx.clearRect(0, 0, width, 60);
+      waveBottomCtx.drawImage(waveTopCanvas, 0, 0);
+      
+      if (isPlaying) animationId = requestAnimationFrame(drawVisuals);
+    }
+
+function randomize() {
+      if (!audioContext) {
+        audioContext = new AudioContext();
+        analyser = audioContext.createAnalyser();
+        analyser.fftSize = 256;
+      }
+      
+      // Randomize all parameters
+      Object.keys(manualParams).forEach(param => {
+        const slider = document.getElementById(param);
+        const valueDisplay = document.getElementById(param + '-val');
+        const min = parseFloat(slider.min);
+        const max = parseFloat(slider.max);
+        const step = parseFloat(slider.step) || 1;
+				
+        let value = (step < 1)? Math.random() * (max - min) + min:
+          Math.floor(Math.random() * ((max - min) / step + 1)) * step + min;
+
+        manualParams[param] = value;
+        slider.value = value;
+        
+        // Update value display and avoid more than one decimal
+        if (valueDisplay) {
+          valueDisplay.textContent = value % 1 === 0 ? value.toString() : value.toFixed(1);
+        }
+      });
+      
+      createRandomWaveform();
+    };
+
+    document.getElementById('toggleMelody').onclick = toggleMelody;
+    
+    document.getElementById('editMelody').onclick = () => {
+      editorCanvas.style.display = "block";
+      editorCanvas.addEventListener('click', canvasClick);
+      drawEditor();
+    }
+    
+    document.getElementById('tempo').oninput = (e) => {
+      tempo = parseInt(e.target.value);
+      stepDuration = (60 / tempo / 4) * 1000; // Recalculate step duration
+    };
+
+    function drawEditor() {
+      editorCanvas.width = window.innerWidth;
+      editorCanvas.height = window.innerHeight;
+      editorCtx.fillStyle = "black";
+      editorCtx.fillRect(60, 60, window.innerWidth - 120, window.innerHeight - 120);
+      editorCtx.fillStyle = "white";
+      editorCtx.textAlign = "center";
+      editorCtx.font = "bold 30px serif";
+      editorCtx.fillText("Click Here to Go Back", window.innerWidth/2, 70);
+			editorCtx.fillText("Less Bars", 120, 70);
+			editorCtx.fillText("More Bars", window.innerWidth-120, 70);
+			//Draw Line showing active step
+      if (isPlaying) {
+        editorCtx.strokeStyle = "hsl(" + (drumStep * 15) + ", 100%, 10%)";
+        editorCtx.lineWidth = 30;
+        line(editorCtx, {x:216 + drumStep * 32, y:95}, {x:216 + drumStep * 32, y:1175});
+      }
+      editorCtx.lineWidth = 2;
+			//Draw Vertical lines
+      for (let i = 0; i < (bars * 4 + 1); i++) {
+			  editorCtx.strokeStyle = "hsl(" + (i * 5) + ", 100%, 20%)";
+        line(editorCtx, {x:200 + 32 * i, y:96}, {x:200 + 32 * i, y:1176});
+      }
+			//Draw Horizontal lines
+      for (let i = 0; i < 61; i++) {
+			  editorCtx.strokeStyle = "hsl(" + (i * 5) + ", 100%, 15%)";
+        line(editorCtx, {x:200, y:96 + 18 * i}, {x:200 + bars * 4 * 32, y:96 + 18 * i});
+      }
+      editorCtx.font = "bold 14px serif";
+      editorCtx.textAlign = "right";
+			editorCtx.fillStyle = "lime";
+      editorCtx.fillText("Kick Drum", 180, 110);
+			editorCtx.fillStyle = "red";
+      editorCtx.fillText("Snare Drum", 180, 128);
+			editorCtx.fillStyle = "cyan";
+      editorCtx.fillText("High Hat", 180, 146);
+      const map = [];
+			//Draw Text Labels
+      for (let i = 0; i < 57; i++) {
+			  editorCtx.fillStyle = "hsl(" + (i * 5) + ", 100%, 80%)";
+        editorCtx.fillText(notes[i%12]+(Math.floor(i/12)+1), 180, 1173 - i * 18);
+        map.push(notes[i%12]+(Math.floor(i/12)+1));
+      }
+			//Draw the notes
+      for (let note of melody) {
+			  if (note.time > bars * 4 - 1) continue;
+        if (note.note == 'K') rect(editorCtx, 200 + note.time * 32, 96, "lime");
+        else if (note.note == 'S') rect(editorCtx, 200 + note.time * 32, 114, "red");
+        else if (note.note == 'H') rect(editorCtx, 200 + note.time * 32, 132, "cyan");
+        else {
+          const index = map.indexOf(note.note.toUpperCase()) + 1;
+          rect(editorCtx, 200 + note.time * 32, 1176 - index * 18, "hsl("+index*10+", 100%, 50%");
+        }
+      }
+    }
+    
+    function rect(ctx, x, y, color) {
+      ctx.fillStyle = color;
+      ctx.fillRect(x + 4, y + 2, 24, 12);
+    }
+    
+    function line(ctx, p1, p2) {
+      ctx.beginPath();
+      ctx.moveTo(p1.x, p1.y);
+      ctx.lineTo(p2.x, p2.y);
+      ctx.stroke();
+    }
+
+    function canvasClick(e) {
+      const map = [];
+      for (let i = 0; i < 57; i++) {
+        map.push(notes[i%12]+(Math.floor(i/12)+1));
+      }
+      map.push('H','S','K');
+      if (e.clientY < 80) {
+			  if (e.clientX < window.innerWidth/4) bars -= 1;
+				else if (e.clientX > window.innerWidth*0.75) bars += 1;
+			  else editorCanvas.style.display = "none";
+				if (bars < 1) bars = 1;
+				drawEditor();
+		  }
+      let time = Math.floor((e.clientX - 200) / 32);
+      let note = Math.floor((1176 - e.clientY) / 18);
+      if (time < 0 || time > (bars * 4 - 1) || note < 0 || note > 59) return
+      for (let i = 0; i < melody.length; i++) {
+        if (melody[i].note.toUpperCase() == map[note] && 
+            melody[i].time == time) {
+          melody.splice(i, 1);
+          drawEditor();
+          return;
+        }
+      }
+      melody.push({'note':map[note], 'time':time});
+      drawEditor();
+    }
+
+    // Parameter control listeners with value display updates
+    Object.keys(manualParams).forEach(param => {
+      const slider = document.getElementById(param);
+      const valueDisplay = document.getElementById(param + '-val');
+      
+      slider.oninput = (e) => {
+        const value = parseFloat(e.target.value);
+        manualParams[param] = value;
+        
+        // Update value display
+        if (valueDisplay) {
+          valueDisplay.textContent = value % 1 === 0 ? value.toString() : value.toFixed(1);
+        }
+        
+        if (audioContext) createRandomWaveform();
+      };
+    });
+		
+		function openImport() {
+		  document.getElementById("import").style["display"] = "block";
+			let output = '{"settings":'+JSON.stringify(manualParams) + ',\n\n"melody":'+JSON.stringify(melody)+'}';
+			document.getElementById("importTextarea").value = output;
+		}
+
+    function closeImport() {
+		  try {
+				let input = JSON.parse(document.getElementById("importTextarea").value);
+				if ("melody" in input) {
+					melody.length = 0;
+					let maxTime = 0;
+					for (let n of input.melody) {
+						melody.push({"note":n.note, "time":n.time});
+						if (n.time > maxTime) maxTime = n.time;
+					}
+					bars = Math.floor((maxTime + 3) / 4);
+				}
+				if ("settings" in input) {
+					Object.keys(input.settings).forEach(param => {
+						const slider = document.getElementById(param);
+						const valueDisplay = document.getElementById(param + '-val');
+						const value = input.settings[param];
+
+						manualParams[param] = value;
+						slider.value = value;
+						valueDisplay.textContent = input.settings[param] % 1 === 0 ? value.toString() : value.toFixed(1);
+						
+					});
+				}
+			} catch (error) {console.log(error);}
+			document.getElementById("import").style["display"] = "none";
+		}
+		
+    function loadDiffMelody() {
+		  document.getElementById("importTextarea").value ='{"settings":{"additive":0,"fm":0,"harmonic":100,"noise":100,"harmonics":4,"addFalloff":0.5,"scaleType":0,"filterType":1,"filterFreq":1926,"filterQ":11.81278220369596,"fmCarrier":1,"fmModulator":1,"fmDepth":0.5,"fmChain":0,"chordType":3,"harSpread":0.5,"noiseTones":7,"noiseAmount":10,"bitcrushMix":0,"bitDepth":3,"sampleRate":26,"attack":0.01,"decay":0.08,"sustain":0,"release":0.01},"melody":[{"note":"K","time":0},{"note":"K","time":4},{"note":"K","time":8},{"note":"K","time":12},{"note":"S","time":4},{"note":"S","time":12},{"note":"H","time":0},{"note":"H","time":2},{"note":"H","time":4},{"note":"H","time":6},{"note":"H","time":8},{"note":"H","time":10},{"note":"H","time":12},{"note":"H","time":14},{"note":"A1","time":0},{"note":"A2","time":2},{"note":"F1","time":4},{"note":"F2","time":6},{"note":"C2","time":8},{"note":"E2","time":10},{"note":"G1","time":12},{"note":"D2","time":14},{"note":"A1","time":16},{"note":"F#1","time":26},{"note":"A1","time":24},{"note":"C2","time":27},{"note":"D2","time":20},{"note":"H","time":16},{"note":"H","time":18},{"note":"H","time":20},{"note":"H","time":22},{"note":"K","time":16},{"note":"K","time":20},{"note":"K","time":24},{"note":"S","time":20},{"note":"S","time":28},{"note":"A1","time":29},{"note":"C2","time":18},{"note":"E2","time":22},{"note":"A1","time":31},{"note":"A1","time":30},{"note":"S","time":27},{"note":"S","time":24},{"note":"S","time":30},{"note":"S","time":29},{"note":"H","time":24},{"note":"K","time":28},{"note":"K","time":30},{"note":"K","time":26},{"note":"S","time":22},{"note":"C5","time":3},{"note":"F5","time":5},{"note":"C5","time":7},{"note":"C5","time":14},{"note":"A4","time":16},{"note":"F5","time":18},{"note":"C5","time":21},{"note":"A4","time":23},{"note":"A4","time":25},{"note":"A4","time":27},{"note":"A4","time":29}]}'
+		}
+
+  </script>
+</body>
+</html>

@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Drum Machine with Bass</title>
+    <style>
+        body { 
+            margin: 0; 
+            background: #222; 
+            color: white; 
+            font-family: Arial, sans-serif;
+            display: flex; 
+            flex-direction: column;
+            align-items: center; 
+            padding: 20px;
+            position: relative;
+        }
+        #cube3d {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            pointer-events: none;
+        }
+        .content {
+            position: relative;
+            z-index: 1;
+            background: rgba(34, 34, 34, 0.2);
+            padding: 20px;
+            border-radius: 10px;
+            backdrop-filter: blur(5px);
+        }
+        button { 
+            padding: 10px 20px; 
+            font-size: 16px; 
+            margin: 5px;
+            background: #444;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover { background: #666; }
+        .controls { margin: 20px; }
+        .tempo { margin: 10px; }
+        .pattern-grid { 
+            display: grid; 
+            grid-template-columns: 100px repeat(16, 30px); 
+            gap: 2px; 
+            margin: 20px 0;
+            align-items: center;
+        }
+        .drum-label { 
+            text-align: right; 
+            padding-right: 10px; 
+            font-weight: bold;
+        }
+        .step-button { 
+            width: 28px; 
+            height: 28px; 
+            padding: 0; 
+            font-size: 10px;
+            border-radius: 3px;
+            position: relative;
+        }
+        .step-button.active { background: #0a84ff; }
+        .step-button.playing { background: #ff3b30; }
+        .step-numbers { 
+            display: grid; 
+            grid-template-columns: 100px repeat(16, 30px); 
+            gap: 2px; 
+            margin-bottom: 10px;
+            font-size: 12px;
+            text-align: center;
+        }
+        .kick { color: #ff6b6b; }
+        .snare { color: #4ecdc4; }
+        .hihat { color: #ffe66d; }
+        .bass { color: #ff9500; }
+        .bass-note { 
+            font-size: 8px; 
+            color: white; 
+            position: absolute; 
+            top: 2px; 
+            left: 2px;
+        }
+        .bass-controls {
+            margin: 10px 0;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        select {
+            background: #444;
+            color: white;
+            border: 1px solid #666;
+            padding: 5px;
+            border-radius: 3px;
+        }
+        .instructions {
+            font-size: 12px;
+            color: #aaa;
+            margin: 10px 0;
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+    <canvas id="cube3d"></canvas>
+    
+    <div class="content">
+        <h1>Drum Machine with Bass</h1>
+        
+        <div class="controls">
+            <button id="playBtn">Play</button>
+            <button id="stopBtn">Stop</button>
+            <button id="clearBtn">Clear All</button>
+        </div>
+        
+        <div class="tempo">
+            <label>Tempo: <span id="tempoValue">120</span> BPM</label>
+            <input type="range" id="tempoSlider" min="80" max="180" value="120">
+        </div>
+        
+        <div class="bass-controls">
+            <label>Bass Note:</label>
+            <select id="bassNoteSelect">
+                <option value="C">C</option>
+                <option value="C#">C#</option>
+                <option value="D">D</option>
+                <option value="D#">D#</option>
+                <option value="E">E</option>
+                <option value="F" selected>F</option>
+                <option value="F#">F#</option>
+                <option value="G">G</option>
+                <option value="G#">G#</option>
+                <option value="A">A</option>
+                <option value="A#">A#</option>
+                <option value="B">B</option>
+            </select>
+            <label>Octave:</label>
+            <select id="bassOctaveSelect">
+                <option value="1">1</option>
+                <option value="2" selected>2</option>
+                <option value="3">3</option>
+            </select>
+        </div>
+        
+        <div class="instructions">
+            Click to toggle steps. Right-click bass steps to change note.
+        </div>
+        
+        <div class="step-numbers">
+            <div></div>
+            <div>1</div><div>2</div><div>3</div><div>4</div>
+            <div>5</div><div>6</div><div>7</div><div>8</div>
+            <div>9</div><div>10</div><div>11</div><div>12</div>
+            <div>13</div><div>14</div><div>15</div><div>16</div>
+        </div>
+        
+        <div class="pattern-grid" id="patternGrid">
+            <!-- Pattern buttons will be generated here -->
+        </div>
+    </div>
+    
+    <script>
+        let audioContext;
+        let analyser;
+        let dataArray;
+        let isPlaying = false;
+        let currentStep = 0;
+        let tempo = 120;
+        let nextNoteTime = 0;
+        let lookahead = 25.0;
+        let scheduleAheadTime = 0.1;
+        let timerID;
+        
+        // 3D Cube setup
+        let cubeCanvas, cubeCtx, cubeGL, cubeProgram, cubeBuffer, cubeTexture;
+        let cubeRotation = 0;
+        let scene, camera, renderer, cube, texture;
+        
+        // Visualizer setup
+        const canvas = document.createElement('canvas');
+        const canvasCtx = canvas.getContext('2d');
+        
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+        
+        // 3D Cube setup
+        function initCube() {
+            const cubeCanvas = document.getElementById('cube3d');
+            
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000);
+            renderer = new THREE.WebGLRenderer({ canvas: cubeCanvas, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            
+            texture = new THREE.CanvasTexture(canvas);
+            const material = new THREE.MeshBasicMaterial({ map: texture });
+            const geometry = new THREE.BoxGeometry(4, 4, 4);
+            cube = new THREE.Mesh(geometry, material);
+            
+            scene.add(cube);
+            camera.position.z = 5;
+        }
+        
+        function drawCube() {
+            if (!cube) return;
+            
+            texture.needsUpdate = true;
+            cube.rotation.x += 0.01;
+            cube.rotation.y += 0.01;
+            renderer.render(scene, camera);
+        }
+        
+        // Note frequencies
+        const noteFreqs = {
+            'C': [32.70, 65.41, 130.81],
+            'C#': [34.65, 69.30, 138.59],
+            'D': [36.71, 73.42, 146.83],
+            'D#': [38.89, 77.78, 155.56],
+            'E': [41.20, 82.41, 164.81],
+            'F': [43.65, 87.31, 174.61],
+            'F#': [46.25, 92.50, 185.00],
+            'G': [49.00, 98.00, 196.00],
+            'G#': [51.91, 103.83, 207.65],
+            'A': [55.00, 110.00, 220.00],
+            'A#': [58.27, 116.54, 233.08],
+            'B': [61.74, 123.47, 246.94]
+        };
+        
+        // Drum pattern (16 steps)
+        const pattern = {
+            kick:   [1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0],
+            snare:  [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0],
+            hihat:  [1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0],
+            bass:   [1,0,0,1, 0,0,1,0, 1,0,0,1, 0,0,1,0]
+        };
+        
+        // Bass notes for each step
+        const bassNotes = ['F','F','A','F', 'F','F','A','F', 'D','D','F','D', 'D','D','F','D'];
+        const bassOctaves = [2,2,2,2, 2,2,2,2, 2,2,2,2, 2,2,2,2];
+        
+        const drums = ['kick', 'snare', 'hihat', 'bass'];
+        const drumLabels = {
+            kick: 'Kick',
+            snare: 'Snare', 
+            hihat: 'Hi-Hat',
+            bass: 'Bass'
+        };
+        
+        const bassNoteDisplays = [];
+        
+        function initAudio() {
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            
+            // Create analyser for visualization
+            analyser = audioContext.createAnalyser();
+            analyser.fftSize = 256;
+            const bufferLength = analyser.frequencyBinCount;
+            dataArray = new Uint8Array(bufferLength);
+            
+            // Connect analyser to destination
+            analyser.connect(audioContext.destination);
+        }
+        
+        function createKick(time) {
+            const osc = audioContext.createOscillator();
+            const gain = audioContext.createGain();
+            
+            osc.frequency.setValueAtTime(60, time);
+            osc.frequency.exponentialRampToValueAtTime(0.01, time + 0.5);
+            
+            gain.gain.setValueAtTime(1, time);
+            gain.gain.exponentialRampToValueAtTime(0.01, time + 0.5);
+            
+            osc.connect(gain);
+            gain.connect(analyser);
+            
+            osc.start(time);
+            osc.stop(time + 0.5);
+        }
+        
+        function createSnare(time) {
+            const bufferSize = audioContext.sampleRate * 0.2;
+            const buffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
+            const output = buffer.getChannelData(0);
+            
+            for (let i = 0; i < bufferSize; i++) {
+                output[i] = Math.random() * 2 - 1;
+            }
+            
+            const noise = audioContext.createBufferSource();
+            noise.buffer = buffer;
+            
+            const filter = audioContext.createBiquadFilter();
+            filter.type = 'highpass';
+            filter.frequency.value = 1000;
+            
+            const gain = audioContext.createGain();
+            gain.gain.setValueAtTime(0.3, time);
+            gain.gain.exponentialRampToValueAtTime(0.01, time + 0.2);
+            
+            noise.connect(filter);
+            filter.connect(gain);
+            gain.connect(analyser);
+            
+            noise.start(time);
+            noise.stop(time + 0.2);
+        }
+        
+        function createHiHat(time) {
+            const bufferSize = audioContext.sampleRate * 0.1;
+            const buffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
+            const output = buffer.getChannelData(0);
+            
+            for (let i = 0; i < bufferSize; i++) {
+                output[i] = Math.random() * 2 - 1;
+            }
+            
+            const noise = audioContext.createBufferSource();
+            noise.buffer = buffer;
+            
+            const filter = audioContext.createBiquadFilter();
+            filter.type = 'highpass';
+            filter.frequency.value = 8000;
+            
+            const gain = audioContext.createGain();
+            gain.gain.setValueAtTime(0.1, time);
+            gain.gain.exponentialRampToValueAtTime(0.01, time + 0.1);
+            
+            noise.connect(filter);
+            filter.connect(gain);
+            gain.connect(analyser);
+            
+            noise.start(time);
+            noise.stop(time + 0.1);
+        }
+        
+        function createBass(time, note, octave) {
+            const freq = noteFreqs[note][octave - 1];
+            
+            const osc = audioContext.createOscillator();
+            const gain = audioContext.createGain();
+            const filter = audioContext.createBiquadFilter();
+            
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(freq, time);
+            
+            filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(800, time);
+            filter.Q.value = 2;
+            
+            gain.gain.setValueAtTime(0.3, time);
+            gain.gain.exponentialRampToValueAtTime(0.01, time + 0.3);
+            
+            osc.connect(filter);
+            filter.connect(gain);
+            gain.connect(analyser);
+            
+            osc.start(time);
+            osc.stop(time + 0.3);
+        }
+        
+        function drawVisualizer() {
+            if (!analyser) return;
+            
+            requestAnimationFrame(drawVisualizer);
+            
+            analyser.getByteFrequencyData(dataArray);
+            
+            canvasCtx.fillStyle = 'rgba(34, 34, 34, 0.1)';
+            canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            const barWidth = (canvas.width / dataArray.length) * 2.5;
+            let barHeight;
+            let x = 0;
+            
+            for (let i = 0; i < dataArray.length; i++) {
+                barHeight = (dataArray[i] / 255) * canvas.height * 0.8;
+                
+                const r = barHeight + 25 * (i / dataArray.length);
+                const g = 250 * (i / dataArray.length);
+                const b = 50;
+                
+                canvasCtx.fillStyle = `rgb(${r},${g},${b})`;
+                canvasCtx.fillRect(x, canvas.height - barHeight, barWidth, barHeight);
+                
+                // Add circular visualization
+                const centerX = canvas.width / 2;
+                const centerY = canvas.height / 2;
+                const radius = 100 + (dataArray[i] / 255) * 200;
+                const angle = (i / dataArray.length) * Math.PI * 2;
+                
+                canvasCtx.beginPath();
+                canvasCtx.arc(
+                    centerX + Math.cos(angle) * radius,
+                    centerY + Math.sin(angle) * radius,
+                    2 + (dataArray[i] / 255) * 8,
+                    0,
+                    Math.PI * 2
+                );
+                canvasCtx.fillStyle = `rgba(${r},${g},${b},0.8)`;
+                canvasCtx.fill();
+                
+                x += barWidth + 1;
+            }
+            
+            drawCube();
+        }
+        
+        function createPatternGrid() {
+            const grid = document.getElementById('patternGrid');
+            
+            drums.forEach(drum => {
+                const label = document.createElement('div');
+                label.className = `drum-label ${drum}`;
+                label.textContent = drumLabels[drum];
+                grid.appendChild(label);
+                
+                for (let step = 0; step < 16; step++) {
+                    const button = document.createElement('button');
+                    button.className = 'step-button';
+                    button.dataset.drum = drum;
+                    button.dataset.step = step;
+                    
+                    if (pattern[drum][step]) {
+                        button.classList.add('active');
+                    }
+                    
+                    if (drum === 'bass') {
+                        const noteDisplay = document.createElement('div');
+                        noteDisplay.className = 'bass-note';
+                        noteDisplay.textContent = bassNotes[step] + bassOctaves[step];
+                        button.appendChild(noteDisplay);
+                        bassNoteDisplays[step] = noteDisplay;
+                        
+                        button.addEventListener('contextmenu', (e) => {
+                            e.preventDefault();
+                            const note = document.getElementById('bassNoteSelect').value;
+                            const octave = parseInt(document.getElementById('bassOctaveSelect').value);
+                            bassNotes[step] = note;
+                            bassOctaves[step] = octave;
+                            noteDisplay.textContent = bassNotes[step] + bassOctaves[step];
+                        });
+                    }
+                    
+                    button.addEventListener('click', () => {
+                        pattern[drum][step] = pattern[drum][step] ? 0 : 1;
+                        button.classList.toggle('active');
+                    });
+                    
+                    grid.appendChild(button);
+                }
+            });
+        }
+        
+        function updateStepIndicator() {
+            document.querySelectorAll('.step-button').forEach((button, index) => {
+                const step = index % 16;
+                button.classList.toggle('playing', step === currentStep);
+            });
+        }
+        
+        function nextNote() {
+            const secondsPerBeat = 60.0 / tempo;
+            nextNoteTime += 0.25 * secondsPerBeat;
+            
+            currentStep++;
+            if (currentStep === 16) {
+                currentStep = 0;
+            }
+            
+            updateStepIndicator();
+        }
+        
+        function scheduleNote(beatNumber, time) {
+            if (pattern.kick[beatNumber]) {
+                createKick(time);
+            }
+            if (pattern.snare[beatNumber]) {
+                createSnare(time);
+            }
+            if (pattern.hihat[beatNumber]) {
+                createHiHat(time);
+            }
+            if (pattern.bass[beatNumber]) {
+                createBass(time, bassNotes[beatNumber], bassOctaves[beatNumber]);
+            }
+        }
+        
+        function scheduler() {
+            while (nextNoteTime < audioContext.currentTime + scheduleAheadTime) {
+                scheduleNote(currentStep, nextNoteTime);
+                nextNote();
+            }
+            timerID = window.setTimeout(scheduler, lookahead);
+        }
+        
+        function play() {
+            if (!audioContext) {
+                initAudio();
+                initCube();
+                drawVisualizer();
+            }
+            
+            if (audioContext.state === 'suspended') {
+                audioContext.resume();
+            }
+            
+            isPlaying = true;
+            currentStep = 0;
+            nextNoteTime = audioContext.currentTime;
+            scheduler();
+        }
+        
+        function stop() {
+            isPlaying = false;
+            window.clearTimeout(timerID);
+            document.querySelectorAll('.step-button').forEach(button => {
+                button.classList.remove('playing');
+            });
+        }
+        
+        function clearAll() {
+            drums.forEach(drum => {
+                for (let i = 0; i < 16; i++) {
+                    pattern[drum][i] = 0;
+                }
+            });
+            document.querySelectorAll('.step-button').forEach(button => {
+                button.classList.remove('active');
+            });
+        }
+        
+        // Initialize
+        createPatternGrid();
+        
+        // Event listeners
+        document.getElementById('playBtn').addEventListener('click', () => {
+            if (!isPlaying) {
+                play();
+            }
+        });
+        
+        document.getElementById('stopBtn').addEventListener('click', stop);
+        document.getElementById('clearBtn').addEventListener('click', clearAll);
+        
+        document.getElementById('tempoSlider').addEventListener('input', (e) => {
+            tempo = e.target.value;
+            document.getElementById('tempoValue').textContent = tempo;
+        });
+    </script>
+</body>
+</html>
