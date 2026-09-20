@@ -47,6 +47,48 @@
 
     #exportbox { position: absolute; right: 12px; top: 46px; width: 360px; max-width: calc(100vw - 24px); height: 220px; display: none; background: #02060a; color: #7fc; border: 1px solid #16505f; font-family: inherit; font-size: 10px; padding: 8px; z-index: 30; }
 
+
+    /* ── song tab: the full-screen sequencer ── */
+    #songtab { position: fixed; inset: 0; z-index: 40; display: none; background: #04090f; color: #8fb; flex-direction: column; }
+    #songtab .st-top { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-bottom: 1px solid #0e2030; font-size: 11px; flex-wrap: wrap; }
+    #songtab .st-top b { color: #ffd24a; letter-spacing: 2px; }
+    #songtab .st-top label { color: #4d7f8f; font-size: 10px; letter-spacing: .1em; }
+    #songtab .st-top input[type=number] { width: 52px; background: #07141b; color: #cfffff; border: 1px solid #16505f; font-family: inherit; font-size: 11px; padding: 2px 4px; }
+    #songtab select { background: #07141b; color: #7fc; border: 1px solid #16505f; font-family: inherit; font-size: 11px; padding: 3px 5px; max-width: 42vw; }
+    #songtab button { background: rgba(0,238,255,0.1); border: 1px solid #00eeff; color: #cfffff; font-family: inherit; font-size: 10px; letter-spacing: .1em; padding: 5px 10px; cursor: pointer; border-radius: 4px; }
+    #songtab button.ghost { background: transparent; border-color: #16505f; color: #7fc; }
+    #songtab .st-note { color: #2fe88a; font-size: 10px; min-width: 90px; }
+    #songtab .st-sections { display: flex; align-items: stretch; gap: 10px; padding: 6px 10px; border-bottom: 1px solid #0e2030; flex-wrap: wrap; }
+    #songtab .st-tabs { display: flex; gap: 4px; align-items: center; }
+    #songtab .st-tab { display: flex; align-items: center; border: 1px solid #16505f; border-radius: 4px; overflow: hidden; }
+    #songtab .st-tab.on { border-color: #ffd24a; }
+    #songtab .st-tabname { padding: 6px 12px; font-size: 12px; letter-spacing: .15em; cursor: pointer; color: #7fc; }
+    #songtab .st-tab.on .st-tabname { color: #ffd24a; background: rgba(255,210,74,0.1); }
+    #songtab .st-tabadd { border: none; border-left: 1px solid #16505f; border-radius: 0; padding: 6px 8px; background: transparent; color: #4d7f8f; }
+    #songtab .st-tabadd:hover { color: #ffd24a; }
+    #songtab .st-tabnew { background: transparent; border-color: #16505f; color: #4d7f8f; font-size: 9px; }
+    #songtab .st-chain { flex: 1 1 260px; display: flex; align-items: center; gap: 8px; min-height: 30px; border: 1px dashed #16505f; border-radius: 4px; padding: 3px 8px; }
+    #songtab .st-chainlbl { color: #ffd24a; font-size: 9px; letter-spacing: .2em; }
+    #songtab .st-chips { display: flex; gap: 5px; flex-wrap: wrap; flex: 1; }
+    #songtab .st-chip { display: flex; align-items: center; gap: 2px; padding: 3px 4px 3px 9px; border: 1px solid #2a6a7a; border-radius: 12px; background: rgba(0,238,255,0.08); font-size: 11px; letter-spacing: .1em; color: #cfffff; cursor: grab; user-select: none; touch-action: none; }
+    #songtab .st-chip.drag { border-color: #ffd24a; background: rgba(255,210,74,0.15); }
+    #songtab .st-chipx { border: none; background: transparent; color: #4d7f8f; padding: 0 4px; font-size: 12px; }
+    #songtab .st-chainhint, #songtab .st-empty { color: #2a6a7a; font-size: 9px; }
+    #songtab .st-main { flex: 1; display: flex; min-height: 0; }
+    #songtab .st-tracks { flex: 0 0 172px; border-right: 1px solid #0e2030; overflow-y: auto; padding: 4px; }
+    #songtab .st-track { display: flex; align-items: center; gap: 4px; padding: 5px 4px; border: 1px solid transparent; border-radius: 4px; cursor: pointer; }
+    #songtab .st-track.on { border-color: #ffd24a; background: rgba(255,210,74,0.08); }
+    #songtab .st-track select { flex: 1; min-width: 0; font-size: 10px; padding: 2px; }
+    #songtab .st-track input[type=range] { width: 44px; accent-color: #ffd24a; }
+    #songtab .st-mute, #songtab .st-trdel { padding: 2px 5px; font-size: 9px; background: transparent; border-color: #16505f; color: #4d7f8f; }
+    #songtab .st-mute.on { color: #ff6b6b; border-color: #ff6b6b; }
+    #songtab .st-tradd { width: 100%; margin-top: 6px; background: transparent; border-color: #16505f; color: #4d7f8f; font-size: 9px; }
+    #songtab .st-rollwrap { flex: 1; overflow: auto; position: relative; }
+    #songtab .st-roll { display: block; touch-action: none; cursor: crosshair; }
+    #songtab .st-out { position: absolute; right: 10px; bottom: 10px; width: 380px; max-width: calc(100vw - 20px); height: 200px; display: none; background: #07141b; color: #7fc; border: 1px solid #16505f; font-family: inherit; font-size: 10px; z-index: 41; }
+    @media (max-width: 640px) { #songtab .st-tracks { flex-basis: 132px; } #songtab .st-track input[type=range] { display: none; } }
+    /* on a phone the header's buttons ran off the right edge, MUSIC among them: let it wrap */
+    @media (max-width: 640px) { header { flex-wrap: wrap; gap: 6px 10px; } .actions { margin-left: 0; flex-wrap: wrap; } }
     /* ── sequencer ─────────────────────────────────────────────────────────── */
     #musicpanel { position: absolute; left: 12px; right: 12px; bottom: 12px; display: none;
       background: rgba(2,8,12,0.96); border: 1px solid #16505f; border-radius: 7px; padding: 9px 11px; z-index: 40; }
@@ -100,6 +142,7 @@
 
   <!-- MUSIC: the sequencer. Same synth, many notes. The grid is read-only for now (click a cell
        to audition its note) — the songs are authored in seq.js, where they can carry comments. -->
+  <div id="songtab"></div>
   <div id="musicpanel">
     <div class="mhead">
       <b>SEQUENCER</b>
@@ -127,6 +170,7 @@
     import { playPatch, makeNoiseBuffer, makeImpulse, PATCH_PRESETS } from './patch.js?v=20260920';
     import { createEditor3D } from './editor3d.js?v=20260920';
     import { Sequencer, SONGS, INSTRUMENTS } from './seq.js?v=20260920';
+    import { createSongTab } from './songtab.js?v=20260920';
     try {
 
     let ctx = null, noise = null, master = null, sfx = null, reverbInput = null;
@@ -431,7 +475,11 @@
       if (on) drawGrid(SONGS[songSel.value]);
       else if (seq) seq.stop();
     }
-    document.getElementById('musicbtn').addEventListener('click', () => showMusic(panel.style.display !== 'block'));
+    // MUSIC opens the song tab - the full-screen editor - which plays through the same bus
+    const songTab = createSongTab(document.getElementById('songtab'), { SONGS, INSTRUMENTS, Sequencer,
+      getCtx: () => { ensureCtx(); if (ctx.state === 'suspended') ctx.resume(); return { ctx, dest: sfx, reverb: reverbInput }; }, stopVoice });
+    document.getElementById('musicbtn').addEventListener('click', () => { if (seq) seq.stop(); showMusic(false); songTab.open(); });
+    if (location.search.includes('probe')) window.songTab = songTab;
     document.getElementById('mclose').addEventListener('click', () => showMusic(false));
     songSel.addEventListener('change', () => {
       shownPart = null;
