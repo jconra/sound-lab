@@ -12,7 +12,8 @@
 // opts: { onChange, getLevel():0..1 (cable pulse), getWave():Uint8Array|null (OUT scope) }
 
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.140.0/build/three.module.js';
-import { NODE_SPECS, DEFAULTS, helpFor } from './specs.js?v=20260613x';
+import { NODE_SPECS, DEFAULTS, helpFor } from './specs.js?v=20260920';
+import { WAVE_PRESETS } from './waves.js?v=20260920';
 
 const CAT_COLOR = { osc: '#00d8ff', noise: '#4ad07a', filter: '#ffcf4d', shaper: '#ff7a3c', gain: '#5a9bff', delay: '#46c0b8', cv: '#c879ff', reverb: '#7a9ac0', master: '#00eeff' };
 const VIZ_NODES = new Set(['osc', 'noise', 'env', 'out']);
@@ -193,6 +194,56 @@ export function createEditor3D(root, opts = {}) {
     return { x: (_wsv.x * 0.5 + 0.5) * r.width + r.left, y: (-_wsv.y * 0.5 + 0.5) * r.height + r.top };
   }
   function closeInspector() { if (inspectorEl) { inspectorEl.remove(); inspectorEl = null; inspectorRec = null; } }
+  // CUSTOM WAVE CONTROLS. A preset list (the wave tables from the old sequencer) and a harmonic
+  // editor: sixteen bars, one per harmonic, dragged up and down. A preset fills the bars with its
+  // harmonic magnitudes; drawing a bar writes a sine-series table (imag = magnitude, real = 0), so
+  // hand-drawn waves are plain harmonic sums and presets keep their phases until touched.
+  function setWavePreset(node, name) {
+    const w = WAVE_PRESETS[name]; if (!w) return;
+    node.harm = { real: w.real.slice(), imag: w.imag.slice() }; node.waveName = name;
+  }
+  function harmMags(harm, n = 16) {
+    const out = [];
+    for (let k = 1; k <= n; k++) out.push(Math.hypot(harm.real[k] || 0, harm.imag[k] || 0));
+    const m = Math.max(1e-6, ...out); return out.map(v => v / m);
+  }
+  function waveRow(rec, col) {
+    const node = rec.node;
+    const row = document.createElement('div'); row.className = 'ictl iwave';
+    const sel = document.createElement('select'); sel.className = 'iwavesel'; sel.style.color = col;
+    const own = document.createElement('option'); own.value = ''; own.textContent = 'drawn'; sel.appendChild(own);
+    for (const name of Object.keys(WAVE_PRESETS)) { const o = document.createElement('option'); o.value = name; o.textContent = name; sel.appendChild(o); }
+    sel.value = node.waveName && WAVE_PRESETS[node.waveName] ? node.waveName : '';
+    sel.addEventListener('change', () => { if (sel.value) { setWavePreset(node, sel.value); paint(); drawNode(rec); audition(); } });
+    const cv = document.createElement('canvas'); cv.className = 'iharm'; cv.width = 256; cv.height = 72;
+    const g = cv.getContext('2d'), N = 16;
+    const paint = () => {
+      g.fillStyle = 'rgba(2,8,14,0.6)'; g.fillRect(0, 0, cv.width, cv.height);
+      const mags = harmMags(node.harm || { real: [0, 0], imag: [0, 1] }, N), bw = cv.width / N;
+      for (let k = 0; k < N; k++) { const h = mags[k] * (cv.height - 10); g.fillStyle = hexA(col, 0.7); g.fillRect(k * bw + 2, cv.height - h - 4, bw - 4, h); }
+      g.fillStyle = '#9bbccc'; g.font = '9px Courier New, monospace'; g.fillText('harmonics 1-' + N + ' - drag to draw', 4, 10);
+    };
+    let drawing = false;
+    const setBar = (e) => {
+      const r = cv.getBoundingClientRect(), x = (e.clientX - r.left) / r.width * cv.width, yv = 1 - Math.min(1, Math.max(0, (e.clientY - r.top) / r.height));
+      const k = Math.min(N - 1, Math.max(0, Math.floor(x / (cv.width / N)))) + 1;
+      if (!node.harm || sel.value) {                    // first stroke on a preset: it becomes a drawn sine series of the same magnitudes
+        const mags = harmMags(node.harm || { real: [0, 0], imag: [0, 1] }, N);
+        node.harm = { real: new Array(N + 1).fill(0), imag: [0, ...mags] }; node.waveName = ''; sel.value = '';
+      }
+      node.harm.imag[k] = yv < 0.03 ? 0 : yv;
+      paint(); drawNode(rec);
+    };
+    cv.addEventListener('pointerdown', e => { drawing = true; cv.setPointerCapture(e.pointerId); setBar(e); });
+    cv.addEventListener('pointermove', e => { if (drawing) setBar(e); });
+    const done = () => { if (drawing) { drawing = false; audition(); } };
+    cv.addEventListener('pointerup', done); cv.addEventListener('pointercancel', done);
+    paint();
+    const lbl = document.createElement('span'); lbl.className = 'ilbl'; lbl.textContent = 'preset';
+    row.append(lbl, sel); const row2 = document.createElement('div'); row2.className = 'ictl'; row2.appendChild(cv);
+    const wrap = document.createElement('div'); wrap.append(row, row2); return wrap;
+  }
+
   function openInspector(rec) {
     closeInspector();
     const node = rec.node, spec = NODE_SPECS[node.type], col = CAT_COLOR[spec.cat] || '#789';
@@ -219,11 +270,15 @@ export function createEditor3D(root, opts = {}) {
             node[key] = opt;
             segw.querySelectorAll('button').forEach(x => { x.style.borderColor = ''; x.style.color = ''; x.style.background = ''; });
             b.style.borderColor = col; b.style.color = col; b.style.background = hexA(col, 0.12);
+            if (key === 'wave') { if (opt === 'custom' && !node.harm) setWavePreset(node, 'Organ'); openInspector(rec); }   // the wave row changes shape
             drawNode(rec); audition();
           });
           segw.appendChild(b);
         });
         row.append(lbl, segw);
+        body.appendChild(row);
+        if (key === 'wave' && node.wave === 'custom') { body.appendChild(waveRow(rec, col)); continue; }
+        continue;
       } else {
         const ps2 = effectiveRange(node, key, ps);
         const logScale = ps2.log && ps2.min > 0;   // log params ride a normalized 0..1000 track, mapped back to real units
@@ -555,6 +610,16 @@ export function createEditor3D(root, opts = {}) {
     g.textAlign = 'left';
   }
 
+  // one sample of a harmonic table at phase p (0..1), scaled so its loudest point is 1
+  const _peak = new WeakMap();
+  function customSample(harm, p) {
+    let v = 0;
+    for (let k = 1; k < Math.min(harm.real.length, harm.imag.length); k++) v += (harm.real[k] || 0) * Math.cos(2 * Math.PI * k * p) + (harm.imag[k] || 0) * Math.sin(2 * Math.PI * k * p);
+    let pk = _peak.get(harm);
+    if (!pk) { pk = 1e-6; for (let i = 0; i < 128; i++) { let q = 0; const pp = i / 128; for (let k = 1; k < Math.min(harm.real.length, harm.imag.length); k++) q += (harm.real[k] || 0) * Math.cos(2 * Math.PI * k * pp) + (harm.imag[k] || 0) * Math.sin(2 * Math.PI * k * pp); pk = Math.max(pk, Math.abs(q)); } _peak.set(harm, pk); }
+    return v / pk;
+  }
+
   function drawSeg(g, rect, key, ps, val, col) {
     const cy = rect.y + rect.h / 2;
     g.font = '11px Courier New, monospace'; g.textBaseline = 'middle'; g.textAlign = 'left';
@@ -589,6 +654,7 @@ export function createEditor3D(root, opts = {}) {
         let s; if (wave === 'square') s = p < 0.5 ? 1 : -1;
         else if (wave === 'sawtooth') s = 1 - 2 * p;
         else if (wave === 'triangle') s = 1 - 4 * Math.abs(p - 0.5);
+        else if (wave === 'custom' && node.harm) s = customSample(node.harm, p);
         else s = Math.sin(p * Math.PI * 2);
         const yy = mid - s * (H / 2 - 3);
         i ? g.lineTo(x0 + i, yy) : g.moveTo(x0 + i, yy);
@@ -1229,7 +1295,8 @@ export function createEditor3D(root, opts = {}) {
   function onFire() { playing = true; fireAt = performance.now(); Object.values(nodes).forEach(r => { if (r.node.type === 'noise') r._seed = Math.random() * 1000; }); }
   function onStop() { playing = false; Object.values(nodes).forEach(rec => { if (rec.hasViz) drawNode(rec); }); }
 
-  return { loadPatch, getPatch, audition: () => onChange(), onFire, onStop, frameAll };
+  return { loadPatch, getPatch, audition: () => onChange(), onFire, onStop, frameAll,
+           inspect: (id) => { const rec = nodes[id]; if (rec) openInspector(rec); return !!rec; } };   // open a node's inspector by id (tests, and anything else that cannot click)
 }
 
 // ── tiny canvas helpers ──────────────────────────────────────────────────────────

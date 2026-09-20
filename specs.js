@@ -6,7 +6,7 @@
 
 const r = (min, max, step, log) => ({ min, max, step, log });   // log:true → knob/slider map exponentially (good for wide Hz spans)
 const seg = (...options) => ({ options });
-const WAVES = ['sine', 'square', 'sawtooth', 'triangle'];
+const WAVES = ['sine', 'square', 'sawtooth', 'triangle', 'custom'];
 const FILT = ['lowpass', 'bandpass', 'highpass'];
 
 // out: 'audio' | 'cv' | null(sink) ; hasIn: accepts an audio input ; cv: param plugs
@@ -40,7 +40,7 @@ export const NODE_SPECS = {
 // one-line explanations for each param. Look up with helpFor(type, key) — type-specific
 // entries ("type:key") win over the generic ones (freq/gain mean different things per node).
 export const HELP = {
-  wave: 'Waveform shape of the oscillator.',
+  wave: 'Waveform shape of the oscillator. Custom: a wave built from harmonics - pick a preset or draw the harmonics below.',
   voices: '1 or 2 detuned oscillators (2 = fatter).',
   glide: 'Time for the filter to glide to freqEnd (seconds).',
   detune: 'Detune between the two voices (cents).',

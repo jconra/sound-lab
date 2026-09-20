@@ -70,7 +70,9 @@
     .mfoot .pbtn { background:#07141b; color:#7fc; border:1px solid #16505f; font-family:inherit;
       font-size:10px; padding:1px 6px; margin-right:3px; cursor:pointer; }
     .mfoot .pbtn[aria-pressed="true"] { background:#1d2c3d; border-color:#ffd24a; color:#ffd24a; }
-  </style>
+    .sl3d-insp .iwavesel { flex:1; background:#05070a; color:#cfffff; border:1px solid #2a3a44; border-radius:4px; padding:3px 6px; font:12px Courier New, monospace; }
+  .sl3d-insp .iharm { width:100%; height:72px; display:block; border:1px solid #2a3a44; border-radius:4px; cursor:crosshair; touch-action:none; }
+</style>
 </head>
 <body>
   <header>
@@ -122,9 +124,9 @@
     window.addEventListener('unhandledrejection', ev => showErr('promise', ev.reason));
   </script>
   <script type="module">
-    import { playPatch, makeNoiseBuffer, makeImpulse, PATCH_PRESETS } from './patch.js?v=20260807';
-    import { createEditor3D } from './editor3d.js?v=20260613x';
-    import { Sequencer, SONGS, INSTRUMENTS } from './seq.js?v=20260807';
+    import { playPatch, makeNoiseBuffer, makeImpulse, PATCH_PRESETS } from './patch.js?v=20260920';
+    import { createEditor3D } from './editor3d.js?v=20260920';
+    import { Sequencer, SONGS, INSTRUMENTS } from './seq.js?v=20260920';
     try {
 
     let ctx = null, noise = null, master = null, sfx = null, reverbInput = null;
@@ -176,6 +178,7 @@
     const rhead = document.getElementById('rhead');
     rhead.addEventListener('click', () => rail.classList.toggle('collapsed'));
     if (window.innerWidth < 640) rail.classList.add('collapsed');
+    if (location.search.includes('probe')) window.editor = editor;   // for headless checks
     // tapping into the node-graph collapses the rail so it's out of the way (capture: fire before the editor eats it)
     document.getElementById('stage3d').addEventListener('pointerdown', () => rail.classList.add('collapsed'), true);
 

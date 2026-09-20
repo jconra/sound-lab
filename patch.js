@@ -65,6 +65,24 @@ function distortionCurve(amount) {
 // ════════════════════════════════════════════════════════════════════════════════
 
 // oscillator — audio source OR (at low freq + wired to a param) an LFO. `level` is the
+// CUSTOM WAVES. An osc with wave 'custom' carries its own harmonic table on the node
+// (n.harm = { real, imag }, the two arrays createPeriodicWave takes), chosen from a preset or
+// drawn in the editor. The table travels inside the patch, so a patch that uses one plays
+// anywhere patch.js does - the game included - with no wave library to ship alongside.
+// PeriodicWaves are cached per context and table, since every voice of every note would
+// otherwise build one.
+const _pwCache = new WeakMap();
+function periodicWaveFor(ctx, harm) {
+  let byKey = _pwCache.get(ctx); if (!byKey) { byKey = new Map(); _pwCache.set(ctx, byKey); }
+  const key = harm.real.join(',') + '|' + harm.imag.join(',');
+  let pw = byKey.get(key);
+  if (!pw) {
+    const n = Math.max(2, Math.min(harm.real.length, harm.imag.length));
+    pw = ctx.createPeriodicWave(Float32Array.from(harm.real.slice(0, n)), Float32Array.from(harm.imag.slice(0, n)), { disableNormalization: false });
+    byKey.set(key, pw);
+  }
+  return pw;
+}
 // output depth, so a slow osc into a param modulates it; this absorbs the old lfo node.
 function bOsc(ctx, n, t0) {
   const t = t0;                                                  // sources run from FIRE; timing lives on envelopes
@@ -72,7 +90,8 @@ function bOsc(ctx, n, t0) {
   const voices = n.voices || 1, starts = [];
   for (let i = 0; i < voices; i++) {
     const o = ctx.createOscillator();
-    o.type = n.wave || 'sine';
+    if (n.wave === 'custom' && n.harm && n.harm.imag) o.setPeriodicWave(periodicWaveFor(ctx, n.harm));
+    else o.type = n.wave === 'custom' ? 'sine' : (n.wave || 'sine');
     o.frequency.setValueAtTime(n.freq ?? 440, t);              // pitch sweeps come from an ENV into the freq plug (× freqMod)
     o.detune.value = voices > 1 ? (i * 2 - 1) * (n.detune || 0) : (n.detune || 0);
     o.connect(out);
