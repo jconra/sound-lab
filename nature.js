@@ -13,18 +13,19 @@
 // whose pitch climbs as it rings out (the "plink" of poured water); a few bigger gurgles lower down, and a faint fizz
 // of spray on top, then the top end softened.
 export const BROOK = {
-  seconds: 7,          // the loop's length (it repeats with no seam)
-  bubbles: 38,         // small bubbles a second: the crisp poured-water sound
+  seconds: 9,          // the loop's length (it repeats with no seam)
+  bubbles: 57,         // small bubbles a second: the crisp poured-water sound
   bubbleLow: 650,      // the small bubbles' pitch, Hz: lowest ...
-  bubbleHigh: 2850,    // ... and highest (most sit near the low end)
-  bubbleLen: 0.04,     // seconds a bubble rings, on average (each one half to one and a half times this)
+  bubbleHigh: 2977,    // ... and highest (most sit near the low end)
+  bubbleLen: 0.059,    // seconds a bubble rings, on average (each one half to one and a half times this)
   rise: 0.55,          // how far a bubble's pitch climbs as it rings (0.55: about half as high again; each +-0.3)
-  gurgles: 8,          // bigger, lower bubbles a second
+  gurgles: 1,          // bigger, lower bubbles a second
   gurglePitch: 470,    // their pitch, Hz, on average (each about +-45%)
-  fizz: 0.012,         // the spray: very quiet bright noise
-  lowpass: 2000,       // the top end softened above this, Hz
-  passes: 2,           // how many low-pass passes (more: a steeper cut, darker)
-  level: 0.6,          // the loop's loudest moment
+  fizz: 0.06,          // the spray: very quiet bright noise (it goes in before the low-pass, so a low one hides it)
+  fizzTop: 0,          // spray added AFTER the low-pass, so it stays bright on top of a dark creek
+  lowpass: 406,        // the top end softened above this, Hz
+  passes: 3,           // how many low-pass passes (more: a steeper cut, darker)
+  level: 0.47,         // the loop's loudest moment
 };
 
 // THE CAMPFIRE: mostly crackles and pops. Dense tiny crackles (very short clicks of noise, wildly different in loudness
@@ -88,7 +89,9 @@ export function brookSamples(rate, settings = BROOK, rand = Math.random) {
   let prev = 0;                                                    // the fizz: white noise with its lows taken off
   for (let i = 0; i < n; i++) { const w = rand() * 2 - 1; out[i] += (w - prev) * S.fizz; prev = w; }
   lowpassLoop(out, rate, S.lowpass, S.passes);
-  return normalise(out, S.level);
+  const done = normalise(out, S.level);
+  if (S.fizzTop > 0) { prev = 0; for (let i = 0; i < n; i++) { const w = rand() * 2 - 1; done[i] += (w - prev) * S.fizzTop; prev = w; } }   // the spray on top
+  return done;
 }
 
 export function fireSamples(rate, settings = FIRE, rand = Math.random) {
