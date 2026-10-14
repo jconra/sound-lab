@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Hob's Voice</title>
+  <!-- HOB'S VOICE: sliders for how Old Hob's babble sounds in Bandit Math (math-games/bandit-math), and a button that
+       says a line with the game's own voice code. hobvoice.js here is a copy of the game's src/audio/voice.js (copy it
+       again after changing that file; the game's tests check the two match), and the syllable is this lab's
+       'VOICE — OLD HOB' patch (patch.js). "Copy for the game" copies a HOB_VOICE block: paste it over the one at the top
+       of the game's src/audio/voice.js. -->
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; background: #04090f; color: #8fb; font-family: 'Courier New', Courier, monospace; }
+    #err { position: fixed; left: 8px; right: 8px; top: 8px; z-index: 99; background: rgba(40,0,0,0.92); border: 1px solid #f55; color: #ff9; font-size: 12px; padding: 8px 10px; border-radius: 5px; white-space: pre-wrap; display: none; }
+    main { max-width: 760px; margin: 0 auto; padding: 18px 16px 40px; }
+    h1 { margin: 0 0 4px; font-size: 16px; letter-spacing: 0.22em; color: #00eeff; font-weight: normal; }
+    .sub { font-size: 11px; color: #4a6a7a; letter-spacing: 0.06em; line-height: 1.5; margin-bottom: 16px; }
+    .sub a { color: #6fc6d6; }
+    .row { display: grid; grid-template-columns: 9.5em 1fr 4.2em; align-items: center; gap: 10px; padding: 7px 0; border-top: 1px solid #0e2030; }
+    .row label { font-size: 12px; color: #9fd; letter-spacing: 0.04em; }
+    .row small { display: block; color: #4a6a7a; font-size: 10px; margin-top: 2px; }
+    .row input[type=range] { width: 100%; accent-color: #00eeff; height: 22px; }
+    .row output { text-align: right; font-size: 12px; color: #cfffff; }
+    .bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 14px 0; }
+    button, select, input[type=text] { background: rgba(0,238,255,0.1); border: 1px solid #00eeff; color: #cfffff; font-family: inherit; font-size: 12px; letter-spacing: 0.08em; padding: 8px 14px; cursor: pointer; border-radius: 4px; }
+    button.ghost, select { background: transparent; border-color: #1a3040; color: #8aa6b6; }
+    button.ghost:hover { border-color: #00eeff; color: #00eeff; }
+    button.big { font-size: 14px; padding: 10px 20px; }
+    input[type=text] { flex: 1 1 260px; cursor: text; letter-spacing: 0.02em; background: #06111a; border-color: #1a3040; }
+    canvas { display: block; width: 100%; height: 90px; background: #06111a; border: 1px solid #0e2030; border-radius: 4px; }
+    .meta { font-size: 10px; color: #4a6a7a; margin-top: 4px; min-height: 1.2em; }
+    pre { background: #06111a; border: 1px solid #0e2030; border-radius: 4px; padding: 10px; font-size: 11px; color: #9fd; white-space: pre-wrap; margin: 6px 0 0; }
+    .stat { color: #2fe88a; font-size: 11px; min-width: 6em; }
+    @media (max-width: 520px) { .row { grid-template-columns: 1fr 3.6em; } .row input[type=range] { grid-column: 1 / -1; grid-row: 2; } }
+  </style>
+</head>
+<body>
+<div id="err"></div>
+<main>
+  <h1>HOB'S VOICE</h1>
+  <div class="sub">Old Hob's babble in Bandit Math: no words, a little syllable a word, each at its own pitch. Move a slider and
+    press <b>Say something</b> to hear it. When it sounds right, <b>Copy for the game</b> and paste the block over the one at
+    the top of <code>bandit-math/src/audio/voice.js</code>. (The syllable itself is the <a href="index.html">lab's</a>
+    'VOICE — OLD HOB' patch.)</div>
+
+  <div id="sliders"></div>
+
+  <div class="bar">
+    <button class="big" id="say" type="button">Say something</button>
+    <select id="mood" aria-label="Mood">
+      <option value="">Plain</option>
+      <option value="praise">Praise (a job well done)</option>
+      <option value="help">Help (after a miss)</option>
+    </select>
+    <button class="ghost" id="reset" type="button">Back to the game's</button>
+  </div>
+  <div class="bar"><input type="text" id="line" aria-label="Line to say" placeholder="Type a line of your own (or leave empty for one of his)"></div>
+  <canvas id="wave" width="1400" height="180"></canvas>
+  <div class="meta" id="meta"></div>
+
+  <div class="bar" style="margin-top: 18px"><button id="copy" type="button">Copy for the game</button><span class="stat" id="copied"></span></div>
+  <pre id="snippet"></pre>
+</main>
+<script>
+  // errors on screen (for a phone, which has no console)
+  const showErr = (m) => { const e = document.getElementById('err'); e.style.display = 'block'; e.textContent += m + '\n'; };
+  addEventListener('error', (e) => showErr(String(e.message || e)));
+  addEventListener('unhandledrejection', (e) => showErr(String(e.reason && e.reason.message || e.reason)));
+</script>
+<script type="module">
+  import { playPatch, PATCH_PRESETS } from './patch.js';
+  import { HOB_VOICE, VOICE, babble, syllablePatch, moodVoice, makeHobVoice } from './hobvoice.js';
+
+  // the sliders: [key, label, what it does, min, max, step]
+  const SLIDERS = [
+    ['pitch', 'Pitch', 'semitones up or down', -12, 12, 0.5],
+    ['speed', 'Speed', 'how fast he talks', 0.5, 2, 0.05],
+    ['gravel', 'Gravel', 'rough and shaky', 0, 1, 0.01],
+    ['nasal', 'Nasal', 'chest .. nose', 0, 1, 0.01],
+    ['wander', 'Pitch wander', 'semitones word to word', 0, 12, 0.5],
+    ['clarity', 'Muffled / clear', 'blanket .. crisp', 0, 1, 0.01],
+    ['volume', 'Volume', 'under the game\'s volume', 0, 1, 0.01],
+    ['mood', 'Mood', 'how much praise and help colour him', 0, 2, 0.05],
+  ];
+  const LINES = [
+    "Mornin'! Rancher next door needs a hand with his herd. Follow the hoofprints out to the pasture.",
+    'Nice throw!', 'Not that one, partner. Count by sixes and try again.', 'Now, where do you reckon that steer got to?',
+    "Box is open. That's fine safecracking.", 'Easy now. Deer bolt if you crowd them.',
+  ];
+  const DEFAULTS = { ...HOB_VOICE };
+  const KEY = 'sound-lab.hob-voice';
+  const S = { ...DEFAULTS };
+  try { const saved = JSON.parse(localStorage.getItem(KEY) || 'null'); if (saved) for (const k of Object.keys(S)) if (Number.isFinite(+saved[k])) S[k] = +saved[k]; } catch (e) { /* no storage: the game's settings */ }
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { /* fine */ } };
+
+  // the page's sound: one context and a master, shaped like the game's audio (src/audio/audio.js) for the voice code
+  let ctx = null, master = null;
+  const audio = { get ctx() { return ctx; }, get out() { return master; }, holds: new Set(), get running() { return !!ctx && ctx.state === 'running'; }, need() {} };
+  const V = makeHobVoice(audio, S);
+  V.on = true;   // (the game's on/off switch is the game's: here he always talks)
+  function wake() {
+    if (!ctx) { ctx = new (window.AudioContext || window.webkitAudioContext)(); master = ctx.createGain(); master.gain.value = 1.6; master.connect(ctx.destination); }
+    if (ctx.state !== 'running') ctx.resume();
+  }
+  let lastT = performance.now();
+  (function tick() { const t = performance.now(); V.update(Math.min(0.1, (t - lastT) / 1000)); lastT = t; requestAnimationFrame(tick); })();
+
+  // ── the sliders ──
+  const box = document.getElementById('sliders'), outs = {};
+  const fmt = (k, v) => (k === 'pitch' || k === 'wander' ? (v > 0 && k === 'pitch' ? '+' : '') + v : k === 'speed' ? v.toFixed(2) + 'x' : v.toFixed(2));
+  for (const [k, label, hint, min, max, step] of SLIDERS) {
+    const row = document.createElement('div'); row.className = 'row';
+    row.innerHTML = `<label for="s-${k}">${label}<small>${hint}</small></label><input type="range" id="s-${k}" min="${min}" max="${max}" step="${step}"><output></output>`;
+    const input = row.querySelector('input'), out = row.querySelector('output');
+    input.value = String(S[k]); out.textContent = fmt(k, S[k]); outs[k] = [input, out];
+    input.addEventListener('input', () => { S[k] = +input.value; out.textContent = fmt(k, S[k]); save(); showSnippet(); });
+    input.addEventListener('change', () => say());
+    box.appendChild(row);
+  }
+  const syncSliders = () => { for (const k of Object.keys(outs)) { outs[k][0].value = String(S[k]); outs[k][1].textContent = fmt(k, S[k]); } };
+
+  // ── say a line: live through the game's voice code, and drawn from an offline render of the same ──
+  let n = 0;
+  const lineNow = () => document.getElementById('line').value.trim() || LINES[n % LINES.length];
+  const moodNow = () => document.getElementById('mood').value || null;
+  function say() {
+    wake();
+    const text = lineNow(); n++;
+    V.speak(text, { mood: moodNow() });
+    draw(text);
+  }
+  // the line rendered offline with these settings (as the game plays it: one patch a syllable, at the settings' volume)
+  async function render(settings = S, text = LINES[0], mood = null) {
+    const s = moodVoice(settings, mood), syl = babble(text, s), base = PATCH_PRESETS[VOICE.patch], SR = 44100;
+    const len = (syl.length ? syl[syl.length - 1].at : 0) + 0.8;
+    const c = new OfflineAudioContext(1, Math.ceil(SR * len), SR), bus = c.createGain(); bus.gain.value = s.volume; bus.connect(c.destination);
+    for (const x of syl) playPatch(c, null, bus, null, syllablePatch(base, x, s), null, { at: 0.05 + x.at });
+    const d = (await c.startRendering()).getChannelData(0);
+    // how loud, and how bright (how much the wave moves sample to sample next to how big it is: higher = brighter)
+    let peak = 0, sum = 0, cnt = 0, all = 0, diff = 0;
+    for (let i = 0; i < d.length; i++) { const a = Math.abs(d[i]); peak = Math.max(peak, a); all += d[i] * d[i]; if (i) diff += (d[i] - d[i - 1]) ** 2; if (a > 0.002) { sum += d[i] * d[i]; cnt++; } }
+    return { d, syllables: syl.length, seconds: +len.toFixed(2), peak: +peak.toFixed(4), rms: +Math.sqrt(sum / Math.max(1, cnt)).toFixed(4), bright: +(Math.sqrt(diff / Math.max(1e-12, all)) * 1000).toFixed(1) };
+  }
+  async function draw(text) {
+    const r = await render(S, text, moodNow()), cv = document.getElementById('wave'), g = cv.getContext('2d'), w = cv.width, h = cv.height;
+    g.clearRect(0, 0, w, h); g.strokeStyle = '#00eeff'; g.lineWidth = 1.5; g.beginPath();
+    const per = r.d.length / w, top = Math.max(r.peak, 0.05);
+    for (let x = 0; x < w; x++) { let lo = 0, hi = 0; for (let i = Math.floor(x * per), e = Math.floor((x + 1) * per); i < e; i++) { lo = Math.min(lo, r.d[i]); hi = Math.max(hi, r.d[i]); } g.moveTo(x + 0.5, h / 2 - (hi / top) * h * 0.46); g.lineTo(x + 0.5, h / 2 - (lo / top) * h * 0.46); }
+    g.stroke();
+    document.getElementById('meta').textContent = `"${text.length > 60 ? text.slice(0, 57) + '...' : text}"  ${r.syllables} syllables, ${r.seconds} s, peak ${r.peak}`;
+  }
+
+  // ── the block for the game ──
+  const NOTES = {
+    pitch: 'semitones up (+) or down (-) from his own (a low buzz at 104 Hz)', speed: 'how fast he talks (1.5 = half as fast again)',
+    gravel: 'how rough and shaky the voice is (0 smooth .. 1 very rough)', nasal: '0 from the chest .. 1 through the nose',
+    wander: 'semitones his pitch wanders from word to word (0 a flat drone)', clarity: '0 muffled (through a blanket) .. 1 crisp and bright',
+    volume: "his level under the game's volume (the patch is written at full; this keeps him quiet)",
+    mood: 'how much praise brightens him and help makes him lower and kinder (0: always the same)',
+  };
+  function snippet() {
+    const w = Math.max(...Object.keys(S).map((k) => `${k}: ${+S[k].toFixed(3)},`.length));
+    return 'export const HOB_VOICE = {\n' + Object.keys(S).map((k) => `  ${(`${k}: ${+S[k].toFixed(3)},`).padEnd(w + 1)}  // ${NOTES[k] || ''}`).join('\n') + '\n};';
+  }
+  const showSnippet = () => { document.getElementById('snippet').textContent = snippet(); };
+  showSnippet();
+  document.getElementById('copy').addEventListener('click', async () => {
+    const t = snippet(), st = document.getElementById('copied');
+    try { await navigator.clipboard.writeText(t); st.textContent = 'copied'; } catch (e) { st.textContent = 'select the text below and copy it'; }
+    setTimeout(() => { st.textContent = ''; }, 2500);
+  });
+  document.getElementById('say').addEventListener('click', say);
+  document.getElementById('mood').addEventListener('change', say);
+  document.getElementById('line').addEventListener('keydown', (e) => { if (e.key === 'Enter') say(); });
+  document.getElementById('reset').addEventListener('click', () => { Object.assign(S, DEFAULTS); syncSliders(); save(); showSnippet(); say(); });
+  draw(LINES[0]);
+
+  // (for test rigs: render a line with some settings, and the current snippet)
+  window.HV = { S, render: async (s, text, mood) => { const r = await render({ ...DEFAULTS, ...s }, text, mood); delete r.d; return r; }, snippet, say, V };
+</script>
+</body>
+</html>

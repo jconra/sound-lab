@@ -881,5 +881,530 @@ export const PATCH_PRESETS = {
       { from: 'tk', to: 'tkg' }, { from: 'tke', to: 'tkg', port: 'gain' }, { from: 'tkg', to: 'bus' },
       { from: 'bus', to: 'out' },
     ],
-  }
+  },
+  // ── STAGE MUSIC (Bandit Math) ──
+  // The harmonica and the low piano that play on the stage in Bandit Math (math-games/bandit-math/src/audio/), built from
+  // numbers measured off a reference recording (overtone strengths, swell and fade times, wobble, breath, the piano's
+  // sharp upper partials and two-stage damper). Tune them here by ear; the game plays the saved preset: after a change,
+  // EXPORT the patch, paste it over the preset below, and copy this file to the game's src/audio/patch.js.
+  // The game plays them as notes (voicePatch: the pitch, the length, the loudness) and, per note, also sets: the bend
+  // (BEND peak = semitones flat at the start, its decay = how long the slide takes), the wobble (WOBBLE rate, LOUDNESS
+  // WOBBLE and PITCH WOBBLE depths, by style: pulses ~7 a second, a slow rock, or nearly plain), the swell (LOUDNESS
+  // attack: slow on a fresh breath, quick when a note runs on from the last) and the fade. It keeps the wobble and
+  // breath and tone filters at the pitch they are set here (they are the player and the instrument, not the note), and
+  // for the harmonica's low notes (below ~370 Hz), upper notes (from ~470 Hz) and high notes (from ~540 Hz) it puts the
+  // REED: LOW / UPPER / HIGH NOTES table into the reed (the reference's colour changes with pitch: each harmonica reed
+  // is its own). For the piano it holds the DAMPER TAIL 0.25 s past the key's release (the tail's faint hang, measured).
+  // HARMONICA, written at G4 (392 Hz): two reeds from the measured overtones, a scoop up into the note, wobble, breath.
+  'STAGE — HARMONICA': {
+    name: 'Harmonica', group: 'MUSIC', kind: 'instrument', dur: 2.6,
+    nodes: [
+      { id: 'reed', type: 'osc', name: 'reed', wave: 'custom', harm: { real: [0, 0.033597, 0.238693, 0.77301, 0.121619, 0.137201, -0.022534, -0.082776, 0, 0.075198, -0.027776, -0.044399, 0.067698, -0.050755, 0.024425, -0.006093, 0, -0.005809, 0.022189, -0.043906, 0.055696, -0.02918, -0.01455, 0.0313, 0, -0.021464, -0.006841, 0.009406, 0.012303, 0.007895, 0.003246, 0.000691, 0], imag: [0, 0.341117, 0.576256, 0.634393, 0, -0.16718, -0.054402, 0.008153, 0.07904, -0.007406, -0.067056, 0.0541, 0, -0.041654, 0.058968, -0.061867, 0.060652, -0.058978, 0.05357, -0.036032, 0, 0.035556, -0.035126, -0.003083, 0.026036, 0.002114, -0.016516, -0.011461, 0, 0.006479, 0.007837, 0.007015, 0.005859] }, freq: 392, detune: -1.5, freqMod: -22.001, level: 2.277 },
+      { id: 'reed2', type: 'osc', name: 'second reed', wave: 'custom', harm: { real: [0, 0.033597, 0.238693, 0.77301, 0.121619, 0.137201, -0.022534, -0.082776, 0, 0.075198, -0.027776, -0.044399, 0.067698, -0.050755, 0.024425, -0.006093, 0, -0.005809, 0.022189, -0.043906, 0.055696, -0.02918, -0.01455, 0.0313, 0, -0.021464, -0.006841, 0.009406, 0.012303, 0.007895, 0.003246, 0.000691, 0], imag: [0, 0.341117, 0.576256, 0.634393, 0, -0.16718, -0.054402, 0.008153, 0.07904, -0.007406, -0.067056, 0.0541, 0, -0.041654, 0.058968, -0.061867, 0.060652, -0.058978, 0.05357, -0.036032, 0, 0.035556, -0.035126, -0.003083, 0.026036, 0.002114, -0.016516, -0.011461, 0, 0.006479, 0.007837, 0.007015, 0.005859] }, freq: 392, detune: 2.5, freqMod: -22.001, level: 0.3643 },
+      { id: 'reed-lo', type: 'osc', name: 'reed: low notes', wave: 'custom', harm: { real: [0, 0.024621, 0.08088, 0.77301, 0.125893, 0.112813, -0.01918, -0.082776, 0, 0.075198, -0.027776, -0.044399, 0.067698, -0.050755, 0.024425, -0.006093, 0, -0.005809, 0.022189, -0.043906, 0.055696, -0.02918, -0.01455, 0.0313, 0, -0.021464, -0.006841, 0.009406, 0.012303, 0.007895, 0.003246, 0.000691, 0], imag: [0, 0.249979, 0.195261, 0.634393, 0, -0.137463, -0.046304, 0.008153, 0.07904, -0.007406, -0.067056, 0.0541, 0, -0.041654, 0.058968, -0.061867, 0.060652, -0.058978, 0.05357, -0.036032, 0, 0.035556, -0.035126, -0.003083, 0.026036, 0.002114, -0.016516, -0.011461, 0, 0.006479, 0.007837, 0.007015, 0.005859] }, freq: 392, level: 1.7676 },
+      { id: 'reed-up', type: 'osc', name: 'reed: upper notes', wave: 'custom', harm: { real: [0, 0.049125, 0.382683, 0.614024, 0.149624, 0.159352, -0.030398, -0.082776, 0, 0.075198, -0.027776, -0.044399, 0.067698, -0.050755, 0.024425, -0.006093, 0, -0.005809, 0.022189, -0.043906, 0.055696, -0.02918, -0.01455, 0.0313, 0, -0.021464, -0.006841, 0.009406, 0.012303, 0.007895, 0.003246, 0.000691, 0], imag: [0, 0.498774, 0.92388, 0.503916, 0, -0.194171, -0.073386, 0.008153, 0.07904, -0.007406, -0.067056, 0.0541, 0, -0.041654, 0.058968, -0.061867, 0.060652, -0.058978, 0.05357, -0.036032, 0, 0.035556, -0.035126, -0.003083, 0.026036, 0.002114, -0.016516, -0.011461, 0, 0.006479, 0.007837, 0.007015, 0.005859] }, freq: 392, level: 2.6363 },
+      { id: 'reed-hi', type: 'osc', name: 'reed: high notes', wave: 'custom', harm: { real: [0, 0.014666, 0.382683, 0.18331, 0.120226, 0.059205, -0.016138, -0.082776, 0, 0.075198, -0.027776, -0.044399, 0.067698, -0.050755, 0.024425, -0.006093, 0, -0.005809, 0.022189, -0.043906, 0.055696, -0.02918, -0.01455, 0.0313, 0, -0.021464, -0.006841, 0.009406, 0.012303, 0.007895, 0.003246, 0.000691, 0], imag: [0, 0.148903, 0.92388, 0.150438, 0, -0.072142, -0.03896, 0.008153, 0.07904, -0.007406, -0.067056, 0.0541, 0, -0.041654, 0.058968, -0.061867, 0.060652, -0.058978, 0.05357, -0.036032, 0, 0.035556, -0.035126, -0.003083, 0.026036, 0.002114, -0.016516, -0.011461, 0, 0.006479, 0.007837, 0.007015, 0.005859] }, freq: 392, level: 1.6494 },
+      { id: 'bend', type: 'env', name: 'bend', peak: 0.8, attack: 0, decay: 0.42, sustain: 0, floor: 0.03, release: 0.1 },
+      { id: 'wob', type: 'osc', name: 'wobble', wave: 'sine', freq: 7, level: 1 },
+      { id: 'grow', type: 'env', name: 'wobble grows', peak: 1, attack: 0.5, attackCurve: 'lin', decay: 0.01, sustain: 1, release: 0.3, delay: 0.25 },
+      { id: 'wob-d', type: 'gain', name: 'wobble', gain: 0 },
+      { id: 'trem-d', type: 'math', name: 'loudness wobble', mul: 0.45 },
+      { id: 'vib-d', type: 'math', name: 'pitch wobble', mul: -0.074 },
+      { id: 'vib-lag', type: 'delay', name: 'pitch trails', time: 0.056, feedback: 0, tone: 20000, wet: 1 },
+      { id: 'wander', type: 'noise', name: 'wander', freq: 1.4, steps: 1, loopLen: 6, rate: 1, level: 1 },
+      { id: 'wander-f', type: 'filter', name: 'wander', ftype: 'lowpass', freq: 1.6, Q: 0.5 },
+      { id: 'wander-d', type: 'math', name: 'wander', mul: 0.05 },
+      { id: 'breath', type: 'noise', name: 'breath', freq: 600, steps: 256, loopLen: 1.2, rate: 1, level: 1 },
+      { id: 'br-hp', type: 'filter', name: 'breath', ftype: 'highpass', freq: 450, Q: 0.6 },
+      { id: 'br-lp', type: 'filter', name: 'breath', ftype: 'lowpass', freq: 1200, Q: 0.5 },
+      { id: 'br-g', type: 'gain', name: 'breath', gain: 0.46 },
+      { id: 'air-hp', type: 'filter', name: 'air', ftype: 'highpass', freq: 3500, Q: 0.6 },
+      { id: 'air-lp', type: 'filter', name: 'air', ftype: 'lowpass', freq: 8000, Q: 0.6 },
+      { id: 'air-g', type: 'gain', name: 'air', gain: 0.08 },
+      { id: 'mix', type: 'gain', name: 'mix', gain: 1 },
+      { id: 'amp', type: 'env', name: 'loudness', peak: 1, attack: 0.55, attackCurve: 'lin', decay: 0.01, sustain: 1, release: 0.6 },
+      { id: 'vca', type: 'gain', name: 'loudness', gain: 0 },
+      { id: 'trem', type: 'gain', name: 'wobble', gain: 1 },
+      { id: 'tone', type: 'filter', name: 'top end', ftype: 'lowpass', freq: 7500, Q: 0.5 },
+      { id: 'send', type: 'send', name: 'room', gain: 0.036 },
+      { id: 'out', type: 'out', name: 'output', gain: 0.15 },
+    ],
+    cables: [
+      { from: 'reed', to: 'mix' }, { from: 'reed2', to: 'mix' }, { from: 'bend', to: 'reed', port: 'freq' }, { from: 'bend', to: 'reed2', port: 'freq' },
+      { from: 'wob', to: 'wob-d' }, { from: 'grow', to: 'wob-d', port: 'gain' }, { from: 'wob-d', to: 'trem-d' }, { from: 'trem-d', to: 'trem', port: 'gain' },
+      { from: 'wob-d', to: 'vib-lag' }, { from: 'vib-lag', to: 'vib-d' }, { from: 'vib-d', to: 'reed', port: 'freq' }, { from: 'vib-d', to: 'reed2', port: 'freq' },
+      { from: 'wander', to: 'wander-f' }, { from: 'wander-f', to: 'wander-d' }, { from: 'wander-d', to: 'reed', port: 'freq' }, { from: 'wander-d', to: 'reed2', port: 'freq' },
+      { from: 'breath', to: 'br-hp' }, { from: 'br-hp', to: 'br-lp' }, { from: 'br-lp', to: 'br-g' }, { from: 'br-g', to: 'mix' },
+      { from: 'breath', to: 'air-hp' }, { from: 'air-hp', to: 'air-lp' }, { from: 'air-lp', to: 'air-g' }, { from: 'air-g', to: 'mix' },
+      { from: 'mix', to: 'vca' }, { from: 'amp', to: 'vca', port: 'gain' }, { from: 'vca', to: 'trem' }, { from: 'trem', to: 'tone' },
+      { from: 'tone', to: 'out' }, { from: 'tone', to: 'send' },
+    ],
+  },
+  // LOW PIANO, written at G2 (98 Hz): partials 1-6 (+ a second string a hair sharp), 7-12 and 13-20 running sharp,
+  // each fading at its own pace; a quick strike, a soft felt thump, a two-stage damper.
+  'STAGE — PIANO': {
+    name: 'Piano (low)', group: 'MUSIC', kind: 'instrument', dur: 3,
+    nodes: [
+      { id: 'low', type: 'osc', name: 'partials 1-6', wave: 'custom', harm: { real: [0, 0.098017, 0.100656, 0.202217, 0.221309, 0.123316, -0.066907, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], imag: [0, 0.995185, 0.243005, 0.165955, 0, -0.150262, -0.161528, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] }, freq: 98, detune: 0, level: 1.779 },
+      { id: 'low2', type: 'osc', name: 'second string', wave: 'custom', harm: { real: [0, 0.098017, 0.100656, 0.202217, 0.221309, 0.123316, -0.066907, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], imag: [0, 0.995185, 0.243005, 0.165955, 0, -0.150262, -0.161528, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] }, freq: 98, detune: 3, level: 0.6226 },
+      { id: 'mid', type: 'osc', name: 'partials 7-12', wave: 'custom', harm: { real: [0, 0, 0, 0, 0, 0, 0, -0.15908, 0, 0.137457, -0.049717, -0.077975, 0.116851, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], imag: [0, 0, 0, 0, 0, 0, 0, 0.015668, 0.147911, -0.013538, -0.120027, 0.095013, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] }, freq: 98, detune: 7.5, level: 0.7869 },
+      { id: 'high', type: 'osc', name: 'partials 13-20', wave: 'custom', harm: { real: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -0.08622, 0.040884, -0.009277, 0, -0.007007, 0.024065, -0.043061, 0.049653, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], imag: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -0.070759, 0.098703, -0.09419, 0.081894, -0.071141, 0.058099, -0.035339, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] }, freq: 98, detune: 22.3, level: 0.5671 },
+      { id: 'low-e', type: 'env', name: 'low fade', peak: 1, attack: 0, decay: 3.5, sustain: 0.45, release: 1.5 },
+      { id: 'mid-e', type: 'env', name: 'middle fade', peak: 1, attack: 0, decay: 2.4, sustain: 0.35, release: 1.5 },
+      { id: 'high-e', type: 'env', name: 'top fade', peak: 1, attack: 0, decay: 2, sustain: 0.18, release: 1.5 },
+      { id: 'low-v', type: 'gain', name: 'low', gain: 0 },
+      { id: 'mid-v', type: 'gain', name: 'middle', gain: 0 },
+      { id: 'high-v', type: 'gain', name: 'top', gain: 0 },
+      { id: 'body', type: 'gain', name: 'body', gain: 1 },
+      { id: 'strike-e', type: 'env', name: 'strike', peak: 0.8, attack: 0, decay: 0.16, sustain: 0, floor: 0.05, release: 0.05 },
+      { id: 'strike', type: 'gain', name: 'strike', gain: 0 },
+      { id: 'thump', type: 'noise', name: 'hammer', freq: 600, steps: 256, loopLen: 0.4, rate: 1, level: 1 },
+      { id: 'thump-f', type: 'filter', name: 'hammer', ftype: 'bandpass', freq: 320, Q: 0.8 },
+      { id: 'thump-e', type: 'env', name: 'hammer', peak: 0.05, attack: 0.002, attackCurve: 'lin', decay: 0.04, sustain: 0, release: 0.02 },
+      { id: 'thump-v', type: 'gain', name: 'hammer', gain: 0 },
+      { id: 'damp-a-e', type: 'env', name: 'damper', peak: 1, attack: 0.003, attackCurve: 'lin', decay: 0.01, sustain: 1, release: 0.06 },
+      { id: 'damp-b-e', type: 'env', name: 'damper tail', peak: 1, attack: 0.003, attackCurve: 'lin', decay: 0.01, sustain: 1, release: 0.15 },
+      { id: 'damp-a', type: 'gain', name: 'damper', gain: 0 },
+      { id: 'damp-b', type: 'gain', name: 'damper tail', gain: 0 },
+      { id: 'damp-a-g', type: 'gain', name: 'damper', gain: 0.75 },
+      { id: 'damp-b-g', type: 'gain', name: 'damper tail', gain: 0.25 },
+      { id: 'mix', type: 'gain', name: 'mix', gain: 1 },
+      { id: 'send', type: 'send', name: 'room', gain: 0.036 },
+      { id: 'out', type: 'out', name: 'output', gain: 0.15 },
+    ],
+    cables: [
+      { from: 'low', to: 'low-v' }, { from: 'low2', to: 'low-v' }, { from: 'low-e', to: 'low-v', port: 'gain' }, { from: 'mid', to: 'mid-v' },
+      { from: 'mid-e', to: 'mid-v', port: 'gain' }, { from: 'high', to: 'high-v' }, { from: 'high-e', to: 'high-v', port: 'gain' }, { from: 'low-v', to: 'body' },
+      { from: 'mid-v', to: 'body' }, { from: 'high-v', to: 'body' }, { from: 'body', to: 'strike' }, { from: 'strike-e', to: 'strike', port: 'gain' },
+      { from: 'thump', to: 'thump-f' }, { from: 'thump-f', to: 'thump-v' }, { from: 'thump-e', to: 'thump-v', port: 'gain' }, { from: 'body', to: 'damp-a' },
+      { from: 'strike', to: 'damp-a' }, { from: 'thump-v', to: 'damp-a' }, { from: 'body', to: 'damp-b' }, { from: 'strike', to: 'damp-b' },
+      { from: 'thump-v', to: 'damp-b' }, { from: 'damp-a-e', to: 'damp-a', port: 'gain' }, { from: 'damp-b-e', to: 'damp-b', port: 'gain' }, { from: 'damp-a', to: 'damp-a-g' },
+      { from: 'damp-b', to: 'damp-b-g' }, { from: 'damp-a-g', to: 'mix' }, { from: 'damp-b-g', to: 'mix' }, { from: 'mix', to: 'out' },
+      { from: 'mix', to: 'send' },
+    ],
+  },
+  // ── end of STAGE MUSIC ──
+  // ── VOICE (Bandit Math: Old Hob's babble, 2026-10-12) ──
+  // OLD HOB, one syllable of his babble: a low buzzing voice (saw at 104 Hz, an old man's pitch, falling a touch) shaken by
+  // a slow random wobble in loudness (the gravel), through two vowel resonances (F1 / F2 of an 'ah': the game moves them
+  // per syllable for 'ee', 'oh', 'oo'...) and a soft top; a breath of noise; one short swell and fall. The game plays it
+  // a syllable a word or so (src/audio/voice.js), each at its own pitch, quietly.
+  'VOICE — OLD HOB': {
+    name: 'Old Hob (babble)', group: 'VOICE', kind: 'voice', dur: 0.4,
+    nodes: [
+      { id: 'buzz', type: 'osc', name: 'voice', wave: 'sawtooth', freq: 104, freqMod: 9, level: 1 },
+      { id: 'buzz2', type: 'osc', name: 'voice (rough)', wave: 'square', freq: 52, freqMod: 4.5, level: 0.18 },
+      { id: 'drop', type: 'env', name: 'pitch fall', peak: -1, attack: 0.03, attackCurve: 'lin', decay: 0.16, sustain: 0, release: 0.05 },
+      { id: 'gravel', type: 'noise', name: 'gravel', freq: 34, steps: 1, loopLen: 2, rate: 1, level: 0.42 },
+      { id: 'rough', type: 'gain', name: 'gravel', gain: 1 },
+      { id: 'f1', type: 'filter', name: 'vowel 1', ftype: 'bandpass', freq: 700, Q: 4.5 },
+      { id: 'f2', type: 'filter', name: 'vowel 2', ftype: 'bandpass', freq: 1100, Q: 6 },
+      { id: 'f1-g', type: 'gain', name: 'vowel 1', gain: 1 },
+      { id: 'f2-g', type: 'gain', name: 'vowel 2', gain: 0.55 },
+      { id: 'chest', type: 'filter', name: 'chest', ftype: 'lowpass', freq: 380, Q: 0.7 },
+      { id: 'chest-g', type: 'gain', name: 'chest', gain: 0.5 },
+      { id: 'breath', type: 'noise', name: 'breath', freq: 600, steps: 256, loopLen: 0.6, rate: 1, level: 1 },
+      { id: 'br-f', type: 'filter', name: 'breath', ftype: 'bandpass', freq: 1500, Q: 0.9 },
+      { id: 'br-g', type: 'gain', name: 'breath', gain: 0.05 },
+      { id: 'mix', type: 'gain', name: 'mix', gain: 1 },
+      { id: 'amp', type: 'env', name: 'loudness', peak: 1, attack: 0.018, attackCurve: 'lin', decay: 0.13, sustain: 0, release: 0.05 },
+      { id: 'vca', type: 'gain', name: 'loudness', gain: 0 },
+      { id: 'tone', type: 'filter', name: 'soft top', ftype: 'lowpass', freq: 2600, Q: 0.5 },
+      { id: 'out', type: 'out', name: 'output', gain: 0.5 },
+    ],
+    cables: [
+      { from: 'drop', to: 'buzz', port: 'freq' }, { from: 'drop', to: 'buzz2', port: 'freq' },
+      { from: 'buzz', to: 'rough' }, { from: 'buzz2', to: 'rough' }, { from: 'gravel', to: 'rough', port: 'gain' },
+      { from: 'rough', to: 'f1' }, { from: 'rough', to: 'f2' }, { from: 'rough', to: 'chest' },
+      { from: 'f1', to: 'f1-g' }, { from: 'f2', to: 'f2-g' }, { from: 'chest', to: 'chest-g' },
+      { from: 'f1-g', to: 'mix' }, { from: 'f2-g', to: 'mix' }, { from: 'chest-g', to: 'mix' },
+      { from: 'breath', to: 'br-f' }, { from: 'br-f', to: 'br-g' }, { from: 'br-g', to: 'mix' },
+      { from: 'mix', to: 'vca' }, { from: 'amp', to: 'vca', port: 'gain' }, { from: 'vca', to: 'tone' }, { from: 'tone', to: 'out' },
+    ],
+  },
+  // ── end of VOICE ──
+  // ── ACTION MUSIC (Bandit Math) ──
+  // The spaghetti-western action music for "Protect the wagon" (math-games/bandit-math/src/audio/actionmusic.js): a
+  // galloping da-da-DUM (GALLOP on the beat, RIM for the da's), a plucked BASS, a TWANG guitar (a noise burst into a
+  // delay one period of the note long, fed back: a plucked string; plus a "wire" through a sweeping resonant filter for
+  // the twang and the ring), a WHISTLE melody (a near-pure tone, a scoop up, a slow vibrato), WHIP cracks, and a BIG
+  // DRUM on each catch. Tune them here by ear; the game plays a preset of the same name from its copy of this file
+  // (src/audio/patch.js) first, else its own (src/audio/actionpatches.js): after a change, export the patch and paste it
+  // into the game's actionpatches.js (or copy this file to src/audio/patch.js).
+  // The game sets per note: the pitch (TWANG written at E3, WHISTLE at E6, BASS at E2), the loudness, the WHISTLE's
+  // length, and the TWANG's string time (1 / the note's frequency) and pick brightness. Keep the TWANG's string feedback
+  // under about 0.89: the delay's damping filter lifts the loop near its cutoff and it runs away above that.
+  'ACTION — GALLOP': {
+    name: 'Gallop drum', group: 'MUSIC', kind: 'perc', dur: 0.5,
+    nodes: [
+      { id: 'body', type: 'osc', name: 'tom', wave: 'sine', freq: 92, freqMod: 70 },
+      { id: 'pit', type: 'env', name: 'pitch drop', peak: 1, attack: 0.001, decay: 0.07, sustain: 0 },
+      { id: 'amp', type: 'env', name: 'tom', peak: 1, attack: 0.002, decay: 0.3, sustain: 0 },
+      { id: 'vca', type: 'gain', name: 'tom', gain: 0 },
+      { id: 'felt', type: 'noise', name: 'felt', freq: 600, steps: 256, rate: 1, loopLen: 0.4 },
+      { id: 'felt-f', type: 'filter', name: 'felt', ftype: 'bandpass', freq: 260, Q: 1.2 },
+      { id: 'felt-e', type: 'env', name: 'felt', peak: 0.5, attack: 0.001, decay: 0.05, sustain: 0 },
+      { id: 'felt-v', type: 'gain', name: 'felt', gain: 0 },
+      { id: 'mix', type: 'gain', name: 'mix', gain: 1 },
+      { id: 'send', type: 'send', name: 'room', gain: 0.05 },
+      { id: 'out', type: 'out', name: 'output', gain: 0.55 },
+    ],
+    cables: [
+      { from: 'pit', to: 'body', port: 'freq' }, { from: 'body', to: 'vca' }, { from: 'amp', to: 'vca', port: 'gain' }, { from: 'vca', to: 'mix' },
+      { from: 'felt', to: 'felt-f' }, { from: 'felt-f', to: 'felt-v' }, { from: 'felt-e', to: 'felt-v', port: 'gain' }, { from: 'felt-v', to: 'mix' },
+      { from: 'mix', to: 'out' }, { from: 'mix', to: 'send' },
+    ],
+  },
+  'ACTION — RIM': {
+    name: 'Rim knock', group: 'MUSIC', kind: 'perc', dur: 0.2,
+    nodes: [
+      { id: 'nz', type: 'noise', name: 'knock', freq: 600, steps: 256, rate: 1, loopLen: 0.4 },
+      { id: 'bp', type: 'filter', name: 'knock', ftype: 'bandpass', freq: 1900, Q: 3 },
+      { id: 'e', type: 'env', name: 'knock', peak: 1, attack: 0.001, decay: 0.045, sustain: 0 },
+      { id: 'v', type: 'gain', name: 'knock', gain: 0 },
+      { id: 'wood', type: 'osc', name: 'wood', wave: 'triangle', freq: 520 },
+      { id: 'wood-e', type: 'env', name: 'wood', peak: 0.35, attack: 0.001, decay: 0.03, sustain: 0 },
+      { id: 'wood-v', type: 'gain', name: 'wood', gain: 0 },
+      { id: 'send', type: 'send', name: 'room', gain: 0.06 },
+      { id: 'out', type: 'out', name: 'output', gain: 0.3 },
+    ],
+    cables: [
+      { from: 'nz', to: 'bp' }, { from: 'bp', to: 'v' }, { from: 'e', to: 'v', port: 'gain' }, { from: 'v', to: 'out' }, { from: 'v', to: 'send' },
+      { from: 'wood', to: 'wood-v' }, { from: 'wood-e', to: 'wood-v', port: 'gain' }, { from: 'wood-v', to: 'out' },
+    ],
+  },
+  'ACTION — BIG DRUM': {
+    name: 'Big drum', group: 'MUSIC', kind: 'perc', dur: 1.6,
+    nodes: [
+      { id: 'body', type: 'osc', name: 'boom', wave: 'sine', freq: 52, freqMod: 80 },
+      { id: 'pit', type: 'env', name: 'pitch drop', peak: 1, attack: 0.001, decay: 0.14, sustain: 0 },
+      { id: 'amp', type: 'env', name: 'boom', peak: 1, attack: 0.003, decay: 1.2, sustain: 0 },
+      { id: 'vca', type: 'gain', name: 'boom', gain: 0 },
+      { id: 'skin', type: 'noise', name: 'skin', freq: 600, steps: 256, rate: 1, loopLen: 0.4 },
+      { id: 'skin-f', type: 'filter', name: 'skin', ftype: 'lowpass', freq: 420, Q: 0.8 },
+      { id: 'skin-e', type: 'env', name: 'skin', peak: 0.8, attack: 0.001, decay: 0.22, sustain: 0 },
+      { id: 'skin-v', type: 'gain', name: 'skin', gain: 0 },
+      { id: 'mix', type: 'gain', name: 'mix', gain: 1 },
+      { id: 'send', type: 'send', name: 'room', gain: 0.22 },
+      { id: 'out', type: 'out', name: 'output', gain: 0.9 },
+    ],
+    cables: [
+      { from: 'pit', to: 'body', port: 'freq' }, { from: 'body', to: 'vca' }, { from: 'amp', to: 'vca', port: 'gain' }, { from: 'vca', to: 'mix' },
+      { from: 'skin', to: 'skin-f' }, { from: 'skin-f', to: 'skin-v' }, { from: 'skin-e', to: 'skin-v', port: 'gain' }, { from: 'skin-v', to: 'mix' },
+      { from: 'mix', to: 'out' }, { from: 'mix', to: 'send' },
+    ],
+  },
+  'ACTION — WHIP': {
+    name: 'Whip crack', group: 'MUSIC', kind: 'perc', dur: 0.4,
+    nodes: [
+      { id: 'nz', type: 'noise', name: 'crack', freq: 600, steps: 256, rate: 1, loopLen: 0.4 },
+      { id: 'hp', type: 'filter', name: 'crack', ftype: 'highpass', freq: 2400, Q: 0.7 },
+      { id: 'e', type: 'env', name: 'crack', peak: 1, attack: 0.0005, decay: 0.028, sustain: 0 },
+      { id: 'v', type: 'gain', name: 'crack', gain: 0 },
+      { id: 'chirp', type: 'osc', name: 'snap', wave: 'triangle', freq: 300, freqMod: 2600 },
+      { id: 'chirp-p', type: 'env', name: 'snap', peak: 1, attack: 0.0005, decay: 0.03, sustain: 0 },
+      { id: 'chirp-e', type: 'env', name: 'snap', peak: 0.5, attack: 0.0005, decay: 0.035, sustain: 0 },
+      { id: 'chirp-v', type: 'gain', name: 'snap', gain: 0 },
+      { id: 'air-f', type: 'filter', name: 'air', ftype: 'bandpass', freq: 1300, Q: 0.9 },
+      { id: 'air-e', type: 'env', name: 'air', peak: 0.25, attack: 0.004, decay: 0.16, sustain: 0 },
+      { id: 'air-v', type: 'gain', name: 'air', gain: 0 },
+      { id: 'send', type: 'send', name: 'room', gain: 0.3 },
+      { id: 'out', type: 'out', name: 'output', gain: 0.5 },
+    ],
+    cables: [
+      { from: 'nz', to: 'hp' }, { from: 'hp', to: 'v' }, { from: 'e', to: 'v', port: 'gain' }, { from: 'v', to: 'out' }, { from: 'v', to: 'send' },
+      { from: 'chirp-p', to: 'chirp', port: 'freq' }, { from: 'chirp', to: 'chirp-v' }, { from: 'chirp-e', to: 'chirp-v', port: 'gain' }, { from: 'chirp-v', to: 'out' },
+      { from: 'nz', to: 'air-f' }, { from: 'air-f', to: 'air-v' }, { from: 'air-e', to: 'air-v', port: 'gain' }, { from: 'air-v', to: 'out' }, { from: 'air-v', to: 'send' },
+    ],
+  },
+  'ACTION — TWANG': {
+    name: 'Twang guitar', group: 'MUSIC', kind: 'instrument', dur: 2.2,
+    nodes: [
+      { id: 'pick', type: 'noise', name: 'pick', freq: 600, steps: 256, rate: 1, loopLen: 0.4 },
+      { id: 'pick-f', type: 'filter', name: 'pick brightness', ftype: 'lowpass', freq: 3200, Q: 0.6 },
+      { id: 'pick-e', type: 'env', name: 'pluck', peak: 1, attack: 0.0005, decay: 0.012, sustain: 0 },
+      { id: 'pick-v', type: 'gain', name: 'pluck', gain: 0 },
+      { id: 'string', type: 'delay', name: 'string (time = 1 / pitch)', time: 0.006068, feedback: 0.85, tone: 3800, wet: 1 },
+      { id: 'wire', type: 'osc', name: 'wire', wave: 'sawtooth', freq: 164.81 },
+      { id: 'wire2', type: 'osc', name: 'second wire', wave: 'square', freq: 164.81, detune: 6, level: 0.35 },
+      { id: 'tw-f', type: 'filter', name: 'twang', ftype: 'lowpass', freq: 700, Q: 7 },
+      { id: 'tw-e', type: 'env', name: 'twang sweep', peak: 1, attack: 0.001, decay: 0.28, sustain: 0 },
+      { id: 'tw-m', type: 'math', name: 'twang sweep (Hz)', mul: 2600 },
+      { id: 'wire-e', type: 'env', name: 'wire', peak: 0.5, attack: 0.002, decay: 1.6, sustain: 0 },
+      { id: 'wire-v', type: 'gain', name: 'wire', gain: 0 },
+      { id: 'mix', type: 'gain', name: 'mix', gain: 1 },
+      { id: 'body', type: 'filter', name: 'body', ftype: 'lowpass', freq: 4200, Q: 1.4 },
+      { id: 'low-cut', type: 'filter', name: 'low cut', ftype: 'highpass', freq: 110, Q: 0.7 },
+      { id: 'grit', type: 'shaper', name: 'amp grit', grit: 0.18 },
+      { id: 'ring', type: 'env', name: 'ring', peak: 1, attack: 0.001, decay: 1.8, sustain: 0 },
+      { id: 'vca', type: 'gain', name: 'ring', gain: 0 },
+      { id: 'trem', type: 'osc', name: 'tremolo', wave: 'sine', freq: 5.6, level: 0.18 },
+      { id: 'trem-v', type: 'gain', name: 'tremolo', gain: 0.85 },
+      { id: 'send', type: 'send', name: 'room', gain: 0.24 },
+      { id: 'out', type: 'out', name: 'output', gain: 0.5 },
+    ],
+    cables: [
+      { from: 'pick', to: 'pick-f' }, { from: 'pick-f', to: 'pick-v' }, { from: 'pick-e', to: 'pick-v', port: 'gain' },
+      { from: 'pick-v', to: 'string' }, { from: 'string', to: 'mix' },
+      { from: 'wire', to: 'tw-f' }, { from: 'wire2', to: 'tw-f' }, { from: 'tw-e', to: 'tw-m' }, { from: 'tw-m', to: 'tw-f', port: 'freq' },
+      { from: 'tw-f', to: 'wire-v' }, { from: 'wire-e', to: 'wire-v', port: 'gain' }, { from: 'wire-v', to: 'mix' },
+      { from: 'mix', to: 'body' }, { from: 'body', to: 'low-cut' }, { from: 'low-cut', to: 'grit' },
+      { from: 'grit', to: 'vca' }, { from: 'ring', to: 'vca', port: 'gain' }, { from: 'vca', to: 'trem-v' }, { from: 'trem', to: 'trem-v', port: 'gain' },
+      { from: 'trem-v', to: 'out' }, { from: 'trem-v', to: 'send' },
+    ],
+  },
+  'ACTION — WHISTLE': {
+    name: 'Whistle', group: 'MUSIC', kind: 'instrument', dur: 2,
+    nodes: [
+      { id: 'tone', type: 'osc', name: 'whistle', wave: 'sine', freq: 1318.5, freqMod: -110 },
+      { id: 'over', type: 'osc', name: 'a little second harmonic', wave: 'sine', freq: 2637, freqMod: -220, level: 0.04 },
+      { id: 'scoop', type: 'env', name: 'scoop up', peak: 1, attack: 0, decay: 0.09, sustain: 0, floor: 0.02 },
+      { id: 'vib', type: 'osc', name: 'vibrato', wave: 'sine', freq: 5.4, level: 1 },
+      { id: 'vib-grow', type: 'env', name: 'vibrato grows', peak: 1, attack: 0.35, attackCurve: 'lin', decay: 0.01, sustain: 1, release: 0.2, delay: 0.15 },
+      { id: 'vib-g', type: 'gain', name: 'vibrato', gain: 0 },
+      { id: 'vib-d', type: 'math', name: 'vibrato depth (x the scoop range: about 16 Hz)', mul: -0.145 },
+      { id: 'air', type: 'noise', name: 'air', freq: 600, steps: 256, rate: 1, loopLen: 1.2 },
+      { id: 'air-f', type: 'filter', name: 'air', ftype: 'bandpass', freq: 1318.5, Q: 6 },
+      { id: 'air-g', type: 'gain', name: 'air', gain: 0.05 },
+      { id: 'mix', type: 'gain', name: 'mix', gain: 1 },
+      { id: 'amp', type: 'env', name: 'loudness', peak: 1, attack: 0.05, attackCurve: 'lin', decay: 0.1, sustain: 0.85, release: 0.16 },
+      { id: 'vca', type: 'gain', name: 'loudness', gain: 0 },
+      { id: 'send', type: 'send', name: 'room', gain: 0.22 },
+      { id: 'out', type: 'out', name: 'output', gain: 0.16 },
+    ],
+    cables: [
+      { from: 'scoop', to: 'tone', port: 'freq' }, { from: 'scoop', to: 'over', port: 'freq' },
+      { from: 'vib', to: 'vib-g' }, { from: 'vib-grow', to: 'vib-g', port: 'gain' }, { from: 'vib-g', to: 'vib-d' }, { from: 'vib-d', to: 'tone', port: 'freq' },
+      { from: 'tone', to: 'mix' }, { from: 'over', to: 'mix' }, { from: 'air', to: 'air-f' }, { from: 'air-f', to: 'air-g' }, { from: 'air-g', to: 'mix' },
+      { from: 'mix', to: 'vca' }, { from: 'amp', to: 'vca', port: 'gain' }, { from: 'vca', to: 'out' }, { from: 'vca', to: 'send' },
+    ],
+  },
+  'ACTION — BASS': {
+    name: 'Plucked bass', group: 'MUSIC', kind: 'instrument', dur: 1,
+    nodes: [
+      { id: 'tri', type: 'osc', name: 'body', wave: 'triangle', freq: 82.41 },
+      { id: 'saw', type: 'osc', name: 'edge', wave: 'sawtooth', freq: 82.41, level: 0.35 },
+      { id: 'lp', type: 'filter', name: 'darkness', ftype: 'lowpass', freq: 520, Q: 0.9 },
+      { id: 'amp', type: 'env', name: 'pluck', peak: 1, attack: 0.004, decay: 0.55, sustain: 0 },
+      { id: 'vca', type: 'gain', name: 'pluck', gain: 0 },
+      { id: 'send', type: 'send', name: 'room', gain: 0.04 },
+      { id: 'out', type: 'out', name: 'output', gain: 0.42 },
+    ],
+    cables: [
+      { from: 'tri', to: 'lp' }, { from: 'saw', to: 'lp' }, { from: 'lp', to: 'vca' }, { from: 'amp', to: 'vca', port: 'gain' },
+      { from: 'vca', to: 'out' }, { from: 'vca', to: 'send' },
+    ],
+  },
+  // ── end of ACTION MUSIC ──
+  // ── CAMPFIRE (Bandit Math's camps: src/fire/campfire.js plays these; keep the two copies the same) ──
+  'FIRE — EMBERS HISS': {
+    name: 'Embers hiss', group: 'WORLD', kind: 'engine', dur: 4,
+    nodes: [
+      { id: 'hiss', type: 'noise', name: 'hiss', freq: 600, steps: 256, loopLen: 2.4, rate: 1, level: 1 },
+      { id: 'hp', type: 'filter', name: 'low cut', ftype: 'highpass', freq: 160, Q: 0.6 },
+      { id: 'lp', type: 'filter', name: 'top end', ftype: 'lowpass', freq: 1500, Q: 0.5 },
+      { id: 'roar', type: 'filter', name: 'roar', ftype: 'lowpass', freq: 260, Q: 0.7 },
+      { id: 'roar-g', type: 'gain', name: 'roar', gain: 0.9 },
+      { id: 'flutter', type: 'gain', name: 'flutter', gain: 0.6 },
+      { id: 'wander', type: 'noise', name: 'wander', freq: 7, steps: 1, loopLen: 5, rate: 1, level: 1 },
+      { id: 'wander-f', type: 'filter', name: 'wander', ftype: 'lowpass', freq: 5, Q: 0.5 },
+      { id: 'wander-d', type: 'math', name: 'wander', mul: 0.45 },
+      { id: 'out', type: 'out', name: 'output', gain: 0.07 },
+    ],
+    cables: [
+      { from: 'hiss', to: 'hp' }, { from: 'hp', to: 'lp' }, { from: 'lp', to: 'flutter' },
+      { from: 'hiss', to: 'roar' }, { from: 'roar', to: 'roar-g' }, { from: 'roar-g', to: 'flutter' },
+      { from: 'wander', to: 'wander-f' }, { from: 'wander-f', to: 'wander-d' }, { from: 'wander-d', to: 'flutter', port: 'gain' },
+      { from: 'flutter', to: 'out' },
+    ],
+  },
+  'FIRE — CRACKLE POP': {
+    name: 'Crackle pop', group: 'WORLD', kind: 'perc', dur: 0.2,
+    nodes: [
+      { id: 'n', type: 'noise', name: 'noise', freq: 600, steps: 256, loopLen: 0.6, rate: 1, level: 1 },
+      { id: 'snap-f', type: 'filter', name: 'snap', ftype: 'bandpass', freq: 2600, Q: 1.8 },
+      { id: 'snap-e', type: 'env', name: 'snap', peak: 1, attack: 0, decay: 0.022, sustain: 0 },
+      { id: 'snap', type: 'gain', name: 'snap', gain: 0 },
+      { id: 'thump-f', type: 'filter', name: 'thump', ftype: 'lowpass', freq: 420, Q: 0.9 },
+      { id: 'thump-e', type: 'env', name: 'thump', peak: 0.7, attack: 0.002, decay: 0.07, sustain: 0 },
+      { id: 'thump', type: 'gain', name: 'thump', gain: 0 },
+      { id: 'out', type: 'out', name: 'output', gain: 0.5 },
+    ],
+    cables: [
+      { from: 'n', to: 'snap-f' }, { from: 'snap-f', to: 'snap' }, { from: 'snap-e', to: 'snap', port: 'gain' }, { from: 'snap', to: 'out' },
+      { from: 'n', to: 'thump-f' }, { from: 'thump-f', to: 'thump' }, { from: 'thump-e', to: 'thump', port: 'gain' }, { from: 'thump', to: 'out' },
+    ],
+  },
+  // ── end of CAMPFIRE ──
+  // ── WAGONS (Bandit Math's wagons on the road: src/audio/wagonsound.js plays these, there in group 'WAGON'; tune them
+  // here and paste the numbers back into the game's copy) ──
+  //   RUMBLE  the wheels on the dirt road, a drone the game fades with the wagon's speed
+  //   CREAK   the wood and iron now and then (the game shifts the pitch a little each time)
+  //   HOOF    one hoof on the dirt (the game plays one for each hoof of the team as it lands)
+  'WAGON — RUMBLE': {
+    name: 'Wagon rumble', group: 'WORLD', kind: 'engine', dur: 3,
+    nodes: [
+      { id: 'grind', type: 'noise', name: 'grind', freq: 31, steps: 26, loopLen: 1.6, rate: 1, level: 1 },
+      { id: 'grind-f', type: 'filter', name: 'grind', ftype: 'lowpass', freq: 170, Q: 0.9 },
+      { id: 'grind-g', type: 'gain', name: 'grind', gain: 0.9 },
+      { id: 'grit', type: 'noise', name: 'gravel', freq: 600, steps: 256, loopLen: 1.1, rate: 1, level: 1 },
+      { id: 'grit-f', type: 'filter', name: 'gravel', ftype: 'bandpass', freq: 520, Q: 0.7 },
+      { id: 'grit-g', type: 'gain', name: 'gravel', gain: 0.12 },
+      { id: 'wob', type: 'osc', name: 'bump', wave: 'sine', freq: 2.3, level: 0.35 },
+      { id: 'bus', type: 'gain', name: 'mix', gain: 0.75 },
+      { id: 'out', type: 'out', name: 'output', gain: 0.6 },
+    ],
+    cables: [
+      { from: 'grind', to: 'grind-f' }, { from: 'grind-f', to: 'grind-g' }, { from: 'grind-g', to: 'bus' },
+      { from: 'grit', to: 'grit-f' }, { from: 'grit-f', to: 'grit-g' }, { from: 'grit-g', to: 'bus' },
+      { from: 'wob', to: 'bus', port: 'gain' }, { from: 'bus', to: 'out' },
+    ],
+  },
+  'WAGON — CREAK': {
+    name: 'Wagon creak', group: 'WORLD', kind: 'perc', dur: 0.6,
+    nodes: [
+      { id: 'wood', type: 'osc', name: 'wood', wave: 'sawtooth', freq: 210, freqMod: 40, voices: 2, detune: 18 },
+      { id: 'wood-p', type: 'env', name: 'bend', peak: 1, attack: 0.18, decay: 0.2, sustain: 0, attackCurve: 'lin' },
+      { id: 'wood-f', type: 'filter', name: 'wood', ftype: 'bandpass', freq: 900, Q: 3.5 },
+      { id: 'wood-g', type: 'gain', name: 'wood', gain: 0 },
+      { id: 'wood-e', type: 'env', name: 'wood', peak: 0.5, attack: 0.05, decay: 0.32, sustain: 0, attackCurve: 'lin' },
+      { id: 'rasp', type: 'noise', name: 'rasp', freq: 85, steps: 3, loopLen: 1, rate: 1, level: 1 },
+      { id: 'rasp-g', type: 'gain', name: 'rasp', gain: 0 },
+      { id: 'out', type: 'out', name: 'output', gain: 0.5 },
+    ],
+    cables: [
+      { from: 'wood', to: 'wood-f' }, { from: 'wood-p', to: 'wood', port: 'freq' }, { from: 'wood-f', to: 'wood-g' },
+      { from: 'wood-e', to: 'wood-g', port: 'gain' }, { from: 'rasp', to: 'rasp-g' }, { from: 'wood-e', to: 'rasp-g', port: 'gain' },
+      { from: 'rasp-g', to: 'wood-g', port: 'gain' },   // (the rasp roughens the creak, only while it sounds)
+      { from: 'wood-g', to: 'out' },
+    ],
+  },
+  'WAGON — HOOF': {
+    name: 'Hoof on dirt', group: 'WORLD', kind: 'perc', dur: 0.3,
+    nodes: [
+      { id: 'thud', type: 'osc', name: 'thud', wave: 'sine', freq: 82, freqMod: 110 },
+      { id: 'thud-p', type: 'env', name: 'thud pitch', peak: 1, attack: 0, decay: 0.045, sustain: 0 },
+      { id: 'thud-g', type: 'gain', name: 'thud', gain: 0 },
+      { id: 'thud-e', type: 'env', name: 'thud', peak: 0.9, attack: 0.002, decay: 0.11, sustain: 0 },
+      { id: 'knock', type: 'noise', name: 'knock', freq: 600, steps: 256, loopLen: 1, rate: 1, level: 1 },
+      { id: 'knock-f', type: 'filter', name: 'knock', ftype: 'bandpass', freq: 1100, Q: 1.2 },
+      { id: 'knock-g', type: 'gain', name: 'knock', gain: 0 },
+      { id: 'knock-e', type: 'env', name: 'knock', peak: 0.45, attack: 0.001, decay: 0.03, sustain: 0 },
+      { id: 'out', type: 'out', name: 'output', gain: 0.55 },
+    ],
+    cables: [
+      { from: 'thud', to: 'thud-g' }, { from: 'thud-p', to: 'thud', port: 'freq' }, { from: 'thud-e', to: 'thud-g', port: 'gain' }, { from: 'thud-g', to: 'out' },
+      { from: 'knock', to: 'knock-f' }, { from: 'knock-f', to: 'knock-g' }, { from: 'knock-e', to: 'knock-g', port: 'gain' }, { from: 'knock-g', to: 'out' },
+    ],
+  },
+  // ── end of WAGONS ──
+  // ── TOWN (Bandit Math: the town's sounds, 2026-10-13) ──
+  // Made in the browser for the town (math-games/bandit-math/src/audio/ambience.js, TOWN_PATCHES there): a pig's grunt, a
+  // hoof on the dirt and in water (played for every hoof of the player's horse as it lands), and the creek's murmur. Hits
+  // are bursts of noise, never ringing tones. After tuning one here, export it and paste it over its copy in the game's
+  // TOWN_PATCHES (the hammer and the saw are the Windmill lab's code, not patches).
+  'TOWN — GRUNT': {
+    name: 'Pig grunt', group: 'TOWN', kind: 'perc', dur: 0.4,
+    nodes: [
+      { id: 'buzz', type: 'noise', name: 'throat', freq: 95, steps: 1, loopLen: 1, rate: 1, level: 1 },
+      { id: 'drop', type: 'env', name: 'pitch drop', peak: 0.35, attack: 0.001, decay: 0.16, sustain: 0 },
+      { id: 'f1', type: 'filter', name: 'mouth 1', ftype: 'bandpass', freq: 380, Q: 2.5 },
+      { id: 'f2', type: 'filter', name: 'mouth 2', ftype: 'bandpass', freq: 850, Q: 4 },
+      { id: 'f2-g', type: 'gain', name: 'mouth 2', gain: 0.6 },
+      { id: 'vca', type: 'gain', name: 'loudness', gain: 0 },
+      { id: 'amp', type: 'env', name: 'loudness', peak: 1, attack: 0.02, attackCurve: 'lin', decay: 0.17, sustain: 0 },
+      { id: 'soft', type: 'filter', name: 'soft top', ftype: 'lowpass', freq: 1400, Q: 0.5 },
+      { id: 'out', type: 'out', name: 'output', gain: 1.4 },
+    ],
+    cables: [
+      { from: 'drop', to: 'buzz', port: 'rate' },
+      { from: 'buzz', to: 'f1' },
+      { from: 'buzz', to: 'f2' },
+      { from: 'f2', to: 'f2-g' },
+      { from: 'f1', to: 'vca' },
+      { from: 'f2-g', to: 'vca' },
+      { from: 'amp', to: 'vca', port: 'gain' },
+      { from: 'vca', to: 'soft' },
+      { from: 'soft', to: 'out' },
+    ],
+  },
+  'TOWN — HOOF': {
+    name: 'Hoof on dirt (noise)', group: 'TOWN', kind: 'perc', dur: 0.2,
+    nodes: [
+      { id: 'n', name: 'noise', type: 'noise', freq: 600, steps: 256, loopLen: 1, rate: 1, level: 1 },
+      { id: 'thump-f', type: 'filter', name: 'thump', ftype: 'lowpass', freq: 260, Q: 0.8 },
+      { id: 'thump-g', type: 'gain', name: 'thump', gain: 0 },
+      { id: 'thump-e', type: 'env', name: 'thump', peak: 1.4, attack: 0.002, decay: 0.07, sustain: 0 },
+      { id: 'knock-f', type: 'filter', name: 'knock', ftype: 'bandpass', freq: 1100, Q: 1.2 },
+      { id: 'knock-g', type: 'gain', name: 'knock', gain: 0 },
+      { id: 'knock-e', type: 'env', name: 'knock', peak: 0.4, attack: 0.001, decay: 0.025, sustain: 0 },
+      { id: 'grit-f', type: 'filter', name: 'grit', ftype: 'highpass', freq: 2600, Q: 0.7 },
+      { id: 'grit-g', type: 'gain', name: 'grit', gain: 0 },
+      { id: 'grit-e', type: 'env', name: 'grit', peak: 0.1, attack: 0.001, decay: 0.03, sustain: 0, delay: 0.004 },
+      { id: 'out', type: 'out', name: 'output', gain: 0.6 },
+    ],
+    cables: [
+      { from: 'n', to: 'thump-f' },
+      { from: 'thump-f', to: 'thump-g' },
+      { from: 'thump-e', to: 'thump-g', port: 'gain' },
+      { from: 'thump-g', to: 'out' },
+      { from: 'n', to: 'knock-f' },
+      { from: 'knock-f', to: 'knock-g' },
+      { from: 'knock-e', to: 'knock-g', port: 'gain' },
+      { from: 'knock-g', to: 'out' },
+      { from: 'n', to: 'grit-f' },
+      { from: 'grit-f', to: 'grit-g' },
+      { from: 'grit-e', to: 'grit-g', port: 'gain' },
+      { from: 'grit-g', to: 'out' },
+    ],
+  },
+  'TOWN — HOOF SPLASH': {
+    name: 'Hoof in water', group: 'TOWN', kind: 'perc', dur: 0.35,
+    nodes: [
+      { id: 'n', name: 'noise', type: 'noise', freq: 600, steps: 256, loopLen: 1, rate: 1, level: 1 },
+      { id: 'slap-f', type: 'filter', name: 'slap', ftype: 'bandpass', freq: 700, Q: 0.7 },
+      { id: 'slap-g', type: 'gain', name: 'slap', gain: 0 },
+      { id: 'slap-e', type: 'env', name: 'slap', peak: 0.7, attack: 0.004, decay: 0.09, sustain: 0 },
+      { id: 'spray-f', type: 'filter', name: 'spray', ftype: 'bandpass', freq: 3800, Q: 0.6 },
+      { id: 'spray-g', type: 'gain', name: 'spray', gain: 0 },
+      { id: 'spray-e', type: 'env', name: 'spray', peak: 0.35, attack: 0.015, decay: 0.2, sustain: 0, delay: 0.01 },
+      { id: 'out', type: 'out', name: 'output', gain: 0.6 },
+    ],
+    cables: [
+      { from: 'n', to: 'slap-f' },
+      { from: 'slap-f', to: 'slap-g' },
+      { from: 'slap-e', to: 'slap-g', port: 'gain' },
+      { from: 'slap-g', to: 'out' },
+      { from: 'n', to: 'spray-f' },
+      { from: 'spray-f', to: 'spray-g' },
+      { from: 'spray-e', to: 'spray-g', port: 'gain' },
+      { from: 'spray-g', to: 'out' },
+    ],
+  },
+  'TOWN — CREEK': {
+    name: 'Creek murmur', group: 'TOWN', kind: 'engine', dur: 3,
+    nodes: [
+      { id: 'n', name: 'noise', type: 'noise', freq: 600, steps: 256, loopLen: 1, rate: 1, level: 1 },
+      { id: 'wash', type: 'filter', name: 'wash', ftype: 'bandpass', freq: 650, Q: 0.6 },
+      { id: 'wash-g', type: 'gain', name: 'wash', gain: 0.5 },
+      { id: 'bab', type: 'filter', name: 'babble', ftype: 'bandpass', freq: 1900, Q: 2.2 },
+      { id: 'jump', type: 'noise', name: 'babble jumps', freq: 7, steps: 1, loopLen: 3, rate: 1, level: 700 },
+      { id: 'bab-g', type: 'gain', name: 'babble', gain: 0.55 },
+      { id: 'swell', type: 'osc', name: 'swell', wave: 'sine', freq: 0.13, level: 0.2 },
+      { id: 'bus', type: 'gain', name: 'mix', gain: 0.8 },
+      { id: 'out', type: 'out', name: 'output', gain: 0.7 },
+    ],
+    cables: [
+      { from: 'n', to: 'wash' },
+      { from: 'wash', to: 'wash-g' },
+      { from: 'wash-g', to: 'bus' },
+      { from: 'n', to: 'bab' },
+      { from: 'jump', to: 'bab', port: 'freq' },
+      { from: 'bab', to: 'bab-g' },
+      { from: 'bab-g', to: 'bus' },
+      { from: 'swell', to: 'bus', port: 'gain' },
+      { from: 'bus', to: 'out' },
+    ],
+  },
+  // ── end of TOWN ──
 };
