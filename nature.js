@@ -43,8 +43,12 @@ export const FIRE = {
   spread: 30,          // how much louder the loudest crackle is than the softest, dB
   crackleLevel: 0.45,  // the crackles' loudness (next to a pop's crack at 1)
   pops: 0.9,           // big pops a second
-  knock: 0.5,          // the woody knock under a pop: how loud
-  knockTone: 380,      // the knock's darkness, Hz (lower: a deeper, duller thud)
+  popLen: 1.2,         // a pop's crack, ms (each half to one and a half times this): short is sharp, long is popcorn
+  popBright: 0.95,     // how bright a pop's crack is (0 dull .. 1 a sharp snap)
+  popSnap: 0.6,        // a second tiny crack a few ms after the first (the split of the wood): how loud
+  knock: 0.15,         // the woody knock under a pop: how loud (a big, long knock reads as popcorn)
+  knockLen: 12,        // the knock's length, ms
+  knockTone: 900,      // the knock's darkness, Hz (lower: a deeper, duller thud)
   settles: 0.08,       // log shifts a second (0.08: one about every twelve seconds)
   settleLevel: 0.12,   // how loud a log settling is
   breath: 0.006,       // the low breath of flame under it all (0: none)
@@ -128,8 +132,10 @@ export function fireSamples(rate, settings = FIRE, rand = Math.random) {
   const kk = 1 - Math.exp(-TAU * clamp(S.knockTone, 40, rate * 0.45) / rate);
   for (let p = 0, m = Math.round(secs * S.pops); p < m; p++) {
     const t0 = Math.floor(rand() * n), amp = 0.45 + rand() * 0.55;
-    click(t0, Math.round(rate * (0.0012 + rand() * 0.0025)), amp, 0.75 + rand() * 0.25);
-    const kl = Math.round(rate * (0.03 + rand() * 0.05)), ka = S.knock * amp * (0.6 + rand() * 0.5), tone = kk * (0.7 + rand() * 0.6);
+    const pl = Math.max(0.1, S.popLen) / 1000, pb = clamp(S.popBright, 0, 1);
+    click(t0, Math.max(2, Math.round(rate * pl * (0.5 + rand()))), amp, clamp(pb + (rand() * 2 - 1) * 0.08, 0, 1));
+    if (S.popSnap > 0) click(t0 + Math.round(rate * (0.0015 + rand() * 0.004)), Math.max(2, Math.round(rate * pl * (0.3 + rand() * 0.5))), amp * S.popSnap * (0.6 + rand() * 0.5), pb);
+    const kl = Math.max(2, Math.round(rate * Math.max(1, S.knockLen) / 1000 * (0.6 + rand() * 0.8))), ka = S.knock * amp * (0.6 + rand() * 0.5), tone = kk * (0.7 + rand() * 0.6);
     let a = 0, b = 0;
     for (let i = 0; i < kl; i++) {
       const w = rand() * 2 - 1; a += tone * (w - a); b += tone * (a - b);
