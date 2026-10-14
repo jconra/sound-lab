@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Creek and Campfire</title>
+  <!-- CREEK AND CAMPFIRE: sliders for Bandit Math's creek and campfire (math-games/bandit-math), both loops made sample by
+       sample. nature.js here is a copy of the game's src/audio/nature.js (copy it again after changing that file; the
+       game's tests check the two match). Play loops the sound live; letting go of a slider makes the loop again and
+       crossfades to it. "Copy for the game" copies a BROOK or FIRE block: paste it over the one in the game's
+       src/audio/nature.js. -->
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; background: #04090f; color: #8fb; font-family: 'Courier New', Courier, monospace; }
+    #err { position: fixed; left: 8px; right: 8px; top: 8px; z-index: 99; background: rgba(40,0,0,0.92); border: 1px solid #f55; color: #ff9; font-size: 12px; padding: 8px 10px; border-radius: 5px; white-space: pre-wrap; display: none; }
+    main { max-width: 760px; margin: 0 auto; padding: 18px 16px 40px; }
+    h1 { margin: 0 0 4px; font-size: 16px; letter-spacing: 0.22em; color: #00eeff; font-weight: normal; }
+    h2 { margin: 30px 0 4px; font-size: 14px; letter-spacing: 0.2em; color: #00eeff; font-weight: normal; border-top: 1px solid #1a3040; padding-top: 18px; }
+    .sub { font-size: 11px; color: #4a6a7a; letter-spacing: 0.06em; line-height: 1.5; margin-bottom: 12px; }
+    .sub a { color: #6fc6d6; }
+    .row { display: grid; grid-template-columns: 10.5em 1fr 5.2em; align-items: center; gap: 10px; padding: 6px 0; border-top: 1px solid #0e2030; }
+    .row label { font-size: 12px; color: #9fd; letter-spacing: 0.04em; }
+    .row small { display: block; color: #4a6a7a; font-size: 10px; margin-top: 2px; }
+    .row input[type=range] { width: 100%; accent-color: #00eeff; height: 22px; }
+    .row output { text-align: right; font-size: 12px; color: #cfffff; }
+    .bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 12px 0; }
+    button { background: rgba(0,238,255,0.1); border: 1px solid #00eeff; color: #cfffff; font-family: inherit; font-size: 12px; letter-spacing: 0.08em; padding: 8px 14px; cursor: pointer; border-radius: 4px; }
+    button.ghost { background: transparent; border-color: #1a3040; color: #8aa6b6; }
+    button.ghost:hover { border-color: #00eeff; color: #00eeff; }
+    button.big { font-size: 14px; padding: 10px 20px; min-width: 7.5em; }
+    button.on { background: rgba(47,232,138,0.18); border-color: #2fe88a; color: #dfffee; }
+    canvas { display: block; width: 100%; background: #06111a; border: 1px solid #0e2030; border-radius: 4px; }
+    canvas.wave { height: 70px; }
+    canvas.spec { height: 110px; margin-top: 6px; }
+    .meta { font-size: 10px; color: #4a6a7a; margin-top: 4px; min-height: 1.2em; }
+    pre { background: #06111a; border: 1px solid #0e2030; border-radius: 4px; padding: 10px; font-size: 11px; color: #9fd; white-space: pre-wrap; margin: 6px 0 0; }
+    .stat { color: #2fe88a; font-size: 11px; min-width: 6em; }
+    @media (max-width: 520px) { .row { grid-template-columns: 1fr 4.6em; } .row input[type=range] { grid-column: 1 / -1; grid-row: 2; } }
+  </style>
+</head>
+<body>
+<div id="err"></div>
+<main>
+  <h1>CREEK AND CAMPFIRE</h1>
+  <div class="sub">Bandit Math's creek and campfire, each a short loop made sample by sample. Press <b>Play</b>, then move a
+    slider: when you let go, the loop is made again and fades in. When it sounds right, <b>Copy for the game</b> and paste
+    the block over the one in <code>bandit-math/src/audio/nature.js</code>. (<a href="index.html">Back to the lab</a>.)</div>
+  <div id="sections"></div>
+</main>
+<script>
+  // errors on screen (for a phone, which has no console)
+  const showErr = (m) => { const e = document.getElementById('err'); e.style.display = 'block'; e.textContent += m + '\n'; };
+  addEventListener('error', (e) => showErr(String(e.message || e)));
+  addEventListener('unhandledrejection', (e) => showErr(String(e.reason && e.reason.message || e.reason)));
+</script>
+<script type="module">
+  import { BROOK, FIRE, brookSamples, fireSamples } from './nature.js';
+
+  // the sliders: [key, label, what it does, min, max, step, 'log' for a pitch slider]
+  const SECTIONS = [
+    {
+      id: 'creek', title: 'THE CREEK', block: 'BROOK', defaults: BROOK, make: brookSamples, cut: 'lowpass',
+      about: 'Tiny bubbles whose pitch climbs as they ring, a few bigger gurgles, a faint fizz of spray, then the top softened by the low-pass. Pull the low-pass down for a darker, further-off creek; more passes make the cut steeper.',
+      sliders: [
+        ['lowpass', 'Low-pass', 'top end softened above, Hz', 300, 8000, 1, 'log'],
+        ['passes', 'Low-pass passes', 'more: a steeper cut', 1, 6, 1],
+        ['bubbles', 'Bubbles', 'small ones a second', 0, 120, 1],
+        ['bubbleLow', 'Bubble pitch low', 'Hz', 150, 3000, 1, 'log'],
+        ['bubbleHigh', 'Bubble pitch high', 'Hz', 300, 6000, 1, 'log'],
+        ['bubbleLen', 'Bubble length', 'seconds, on average', 0.005, 0.15, 0.001],
+        ['rise', 'Rise', 'how far a bubble climbs', 0, 1.5, 0.01],
+        ['gurgles', 'Gurgles', 'big low ones a second', 0, 40, 0.5],
+        ['gurglePitch', 'Gurgle pitch', 'Hz, on average', 100, 1200, 1, 'log'],
+        ['fizz', 'Fizz', 'spray on top', 0, 0.06, 0.001],
+        ['seconds', 'Loop seconds', 'before it repeats', 3, 15, 0.5],
+        ['level', 'Level', 'the loudest moment', 0.1, 0.95, 0.01],
+      ],
+      notes: {
+        seconds: "the loop's length (it repeats with no seam)", bubbles: 'small bubbles a second: the crisp poured-water sound',
+        bubbleLow: "the small bubbles' pitch, Hz: lowest ...", bubbleHigh: '... and highest (most sit near the low end)',
+        bubbleLen: 'seconds a bubble rings, on average (each one half to one and a half times this)',
+        rise: "how far a bubble's pitch climbs as it rings (0.55: about half as high again; each +-0.3)",
+        gurgles: 'bigger, lower bubbles a second', gurglePitch: 'their pitch, Hz, on average (each about +-45%)',
+        fizz: 'the spray: very quiet bright noise', lowpass: 'the top end softened above this, Hz',
+        passes: 'how many low-pass passes (more: a steeper cut, darker)', level: "the loop's loudest moment",
+      },
+    },
+    {
+      id: 'fire', title: 'THE CAMPFIRE', block: 'FIRE', defaults: FIRE, make: fireSamples, cut: 'lowpass',
+      about: 'Mostly crackles and pops: dense tiny clicks in little bursts (sap spitting), fewer big pops (a crack with a woody knock under it), now and then a log settling, and at most a faint low breath of flame.',
+      sliders: [
+        ['crackles', 'Crackles', 'tiny ones a second', 0, 300, 1],
+        ['cluster', 'Cluster size', 'crackles a burst (1: scattered)', 1, 20, 0.5],
+        ['clusterLen', 'Cluster length', 'seconds a burst spreads over', 0.01, 0.4, 0.005],
+        ['crackleShort', 'Crackle shortest', 'ms', 0.1, 4, 0.1],
+        ['crackleLong', 'Crackle longest', 'ms', 0.5, 12, 0.1],
+        ['bright', 'Brightness', 'dull ticks .. glassy snaps', 0, 1, 0.01],
+        ['spread', 'Loudness spread', 'dB, softest to loudest', 0, 50, 1],
+        ['crackleLevel', 'Crackle level', "next to a pop's crack", 0, 1, 0.01],
+        ['pops', 'Pops', 'big ones a second', 0, 5, 0.05],
+        ['knock', 'Knock', 'woody thud under a pop', 0, 1.5, 0.01],
+        ['knockTone', 'Knock tone', 'Hz: lower is deeper', 80, 1500, 1, 'log'],
+        ['settles', 'Log settles', 'a second', 0, 0.5, 0.01],
+        ['settleLevel', 'Settle level', 'the low crunch', 0, 0.6, 0.01],
+        ['breath', 'Flame breath', 'faint low rumble (0: none)', 0, 0.05, 0.001],
+        ['lowpass', 'Low-pass', 'top end softened above, Hz', 1000, 16000, 1, 'log'],
+        ['seconds', 'Loop seconds', 'before it repeats', 4, 20, 0.5],
+        ['level', 'Level', 'the loudest moment', 0.05, 0.95, 0.01],
+      ],
+      notes: {
+        seconds: "the loop's length (it repeats with no seam)", crackles: 'tiny crackles a second, all told',
+        cluster: 'crackles in a cluster, on average (1: each on its own, evenly scattered)', clusterLen: 'seconds a cluster is spread over',
+        crackleShort: "a crackle's length, ms: shortest ...", crackleLong: '... and longest',
+        bright: 'how bright the crackles are on average (0 dull ticks .. 1 sharp, glassy snaps)',
+        spread: 'how much louder the loudest crackle is than the softest, dB', crackleLevel: "the crackles' loudness (next to a pop's crack at 1)",
+        pops: 'big pops a second', knock: 'the woody knock under a pop: how loud', knockTone: "the knock's darkness, Hz (lower: a deeper, duller thud)",
+        settles: 'log shifts a second (0.08: one about every twelve seconds)', settleLevel: 'how loud a log settling is',
+        breath: 'the low breath of flame under it all (0: none)', lowpass: "the whole fire's top end softened above this, Hz", level: "the loop's loudest moment",
+      },
+    },
+  ];
+
+  // the page's sound: one context, a master and an analyser for the picture
+  let ctx = null, master = null;
+  function wake() {
+    if (!ctx) { ctx = new (window.AudioContext || window.webkitAudioContext)(); master = ctx.createGain(); master.gain.value = 1; master.connect(ctx.destination); }
+    if (ctx.state !== 'running') ctx.resume();
+    return ctx;
+  }
+  const SR = () => (ctx ? ctx.sampleRate : 48000);
+
+  const fmtNum = (v) => (Math.abs(v) >= 100 ? String(Math.round(v)) : String(+v.toFixed(3)));
+  const LOGN = 1000;   // (a log slider runs 0..1000)
+  const toPos = (sl, v) => (sl[6] === 'log' ? Math.round(LOGN * Math.log(v / sl[3]) / Math.log(sl[4] / sl[3])) : v);
+  const fromPos = (sl, p) => (sl[6] === 'log' ? Math.round(sl[3] * Math.pow(sl[4] / sl[3], p / LOGN)) : +p);
+
+  const root = document.getElementById('sections');
+  window.NL = {};
+  for (const sec of SECTIONS) {
+    const KEY = 'sound-lab.nature.' + sec.id, S = { ...sec.defaults };
+    try { const saved = JSON.parse(localStorage.getItem(KEY) || 'null'); if (saved) for (const k of Object.keys(S)) if (Number.isFinite(+saved[k])) S[k] = +saved[k]; } catch (e) { /* no storage: the game's settings */ }
+    const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { /* fine */ } };
+
+    const el = document.createElement('section');
+    el.innerHTML = `<h2>${sec.title}</h2><div class="sub">${sec.about}</div>
+      <div class="bar"><button class="big" type="button" data-play>Play</button><button class="ghost" type="button" data-reset>Back to the game's</button><span class="stat" data-busy></span></div>
+      <canvas class="wave" width="1400" height="140"></canvas><canvas class="spec" width="1400" height="220"></canvas>
+      <div class="meta" data-meta></div><div data-sliders></div>
+      <div class="bar" style="margin-top: 14px"><button type="button" data-copy>Copy for the game</button><span class="stat" data-copied></span></div>
+      <pre data-snippet></pre>`;
+    root.appendChild(el);
+    const $ = (s) => el.querySelector(s);
+    const waveCv = el.querySelector('canvas.wave'), specCv = el.querySelector('canvas.spec');
+
+    // ── the sliders ──
+    const rows = {};
+    for (const sl of sec.sliders) {
+      const [k, label, hint, min, max, step, kind] = sl;
+      const row = document.createElement('div'); row.className = 'row';
+      const rmin = kind === 'log' ? 0 : min, rmax = kind === 'log' ? LOGN : max, rstep = kind === 'log' ? 1 : step;
+      row.innerHTML = `<label for="${sec.id}-${k}">${label}<small>${hint}</small></label><input type="range" id="${sec.id}-${k}" min="${rmin}" max="${rmax}" step="${rstep}"><output></output>`;
+      const input = row.querySelector('input'), out = row.querySelector('output');
+      input.value = String(toPos(sl, S[k])); out.textContent = fmtNum(S[k]); rows[k] = [input, out, sl];
+      input.addEventListener('input', () => { S[k] = fromPos(sl, input.value); out.textContent = fmtNum(S[k]); save(); showSnippet(); });
+      input.addEventListener('change', () => remake());
+      $('[data-sliders]').appendChild(row);
+    }
+    const syncSliders = () => { for (const k of Object.keys(rows)) { const [i, o, sl] = rows[k]; i.value = String(toPos(sl, S[k])); o.textContent = fmtNum(S[k]); } };
+
+    // ── the loop: made from the settings, played live, crossfaded when remade ──
+    let loop = null, playing = null, analyser = null;
+    function makeLoop() {
+      const t0 = performance.now(), d = sec.make(SR(), S), ms = performance.now() - t0;
+      let pk = 0, ss = 0; for (let i = 0; i < d.length; i++) { pk = Math.max(pk, Math.abs(d[i])); ss += d[i] * d[i]; }
+      const seam = Math.abs(d[0] - d[d.length - 1]);
+      loop = { d, peak: pk, rms: Math.sqrt(ss / d.length), seam, ms };
+      $('[data-meta]').textContent = `${(d.length / SR()).toFixed(1)} s loop, peak ${pk.toFixed(3)}, rms ${loop.rms.toFixed(4)}, seam step ${seam.toFixed(4)}, made in ${ms.toFixed(0)} ms`;
+      drawWave();
+      return loop;
+    }
+    function start(fadeIn = 0.25) {
+      const c = wake();
+      if (!analyser) { analyser = c.createAnalyser(); analyser.fftSize = 4096; analyser.smoothingTimeConstant = 0.6; analyser.connect(master); }
+      const buf = c.createBuffer(1, loop.d.length, c.sampleRate); buf.copyToChannel(loop.d, 0);
+      const src = c.createBufferSource(), g = c.createGain(); src.buffer = buf; src.loop = true;
+      g.gain.setValueAtTime(0, c.currentTime); g.gain.linearRampToValueAtTime(1, c.currentTime + fadeIn);
+      src.connect(g).connect(analyser);
+      const at = playing ? (c.currentTime - playing.t0) % buf.duration : 0;
+      src.start(c.currentTime, at);
+      return { src, g, t0: c.currentTime - at };
+    }
+    function stopOne(p, fade = 0.25) {
+      if (!p) return;
+      const t = ctx.currentTime; p.g.gain.cancelScheduledValues(t); p.g.gain.setValueAtTime(p.g.gain.value, t); p.g.gain.linearRampToValueAtTime(0, t + fade);
+      try { p.src.stop(t + fade + 0.05); } catch (e) { /* gone */ }
+    }
+    function remake() {
+      $('[data-busy]').textContent = 'making...';
+      setTimeout(() => {   // (let the label paint first)
+        makeLoop(); $('[data-busy]').textContent = '';
+        if (playing) { const old = playing; playing = start(0.35); stopOne(old, 0.35); }
+      }, 10);
+    }
+    function play() {
+      if (playing) { stopOne(playing); playing = null; $('[data-play]').textContent = 'Play'; $('[data-play]').classList.remove('on'); return; }
+      wake(); if (!loop || loop.d.length !== Math.round(SR() * S.seconds)) makeLoop();
+      playing = start(); $('[data-play]').textContent = 'Stop'; $('[data-play]').classList.add('on');
+    }
+
+    // ── the pictures: the loop's waveform, and while playing the live spectrum (with the low-pass marked) ──
+    function drawWave() {
+      const g = waveCv.getContext('2d'), w = waveCv.width, h = waveCv.height, d = loop.d;
+      g.clearRect(0, 0, w, h); g.strokeStyle = sec.id === 'fire' ? '#ffb070' : '#00eeff'; g.lineWidth = 1.5; g.beginPath();
+      const per = d.length / w, top = Math.max(loop.peak, 0.05);
+      for (let x = 0; x < w; x++) { let lo = 0, hi = 0; for (let i = Math.floor(x * per), e = Math.floor((x + 1) * per); i < e; i++) { lo = Math.min(lo, d[i]); hi = Math.max(hi, d[i]); } g.moveTo(x + 0.5, h / 2 - (hi / top) * h * 0.46); g.lineTo(x + 0.5, h / 2 - (lo / top) * h * 0.46); }
+      g.stroke();
+    }
+    let bins = null;
+    const fx = (f, w) => w * Math.log(f / 40) / Math.log(20000 / 40);
+    function drawSpec() {
+      const g = specCv.getContext('2d'), w = specCv.width, h = specCv.height;
+      g.clearRect(0, 0, w, h);
+      g.fillStyle = '#16303e'; g.font = '30px Courier New';
+      for (const f of [100, 300, 1000, 3000, 10000]) { const x = fx(f, w); g.fillStyle = '#16303e'; g.fillRect(x, 0, 1, h); g.fillStyle = '#4a6a7a'; g.fillText(f >= 1000 ? f / 1000 + 'k' : String(f), x + 4, h - 6); }
+      const cx = fx(S[sec.cut], w); g.fillStyle = '#ffcc33'; g.fillRect(cx - 1, 0, 2, h);
+      if (playing && analyser) {
+        if (!bins || bins.length !== analyser.frequencyBinCount) bins = new Float32Array(analyser.frequencyBinCount);
+        analyser.getFloatFrequencyData(bins);
+        const ny = ctx.sampleRate / 2; g.strokeStyle = sec.id === 'fire' ? '#ffb070' : '#00eeff'; g.lineWidth = 2; g.beginPath();
+        let first = true;
+        for (let i = 1; i < bins.length; i++) { const f = (i / bins.length) * ny; if (f < 40) continue; const x = fx(f, w), y = h * (-bins[i] - 20) / 100; if (first) { g.moveTo(x, y); first = false; } else g.lineTo(x, y); }
+        g.stroke();
+      } else { g.fillStyle = '#6a8a9a'; g.fillText('spectrum shows while playing; the yellow line is the low-pass', 20, 30); }
+      requestAnimationFrame(drawSpec);
+    }
+
+    // ── the block for the game ──
+    function snippet() {
+      const keys = Object.keys(sec.defaults), w = Math.max(...keys.map((k) => `${k}: ${fmtNum(S[k])},`.length));
+      return `export const ${sec.block} = {\n` + keys.map((k) => `  ${(`${k}: ${fmtNum(S[k])},`).padEnd(w + 1)}  // ${sec.notes[k] || ''}`).join('\n') + '\n};';
+    }
+    const showSnippet = () => { $('[data-snippet]').textContent = snippet(); };
+    showSnippet();
+    $('[data-copy]').addEventListener('click', async () => {
+      const t = snippet(), st = $('[data-copied]');
+      try { await navigator.clipboard.writeText(t); st.textContent = 'copied'; } catch (e) { st.textContent = 'select the text below and copy it'; }
+      setTimeout(() => { st.textContent = ''; }, 2500);
+    });
+    $('[data-play]').addEventListener('click', play);
+    $('[data-reset]').addEventListener('click', () => { Object.assign(S, sec.defaults); syncSliders(); save(); showSnippet(); remake(); });
+    makeLoop(); drawSpec();
+
+    // (for test rigs: the settings, the current snippet, the loop's numbers)
+    window.NL[sec.id] = { S, snippet, play, remake, stats: () => loop && { peak: loop.peak, rms: loop.rms, seam: loop.seam, ms: loop.ms, n: loop.d.length }, playing: () => !!playing };
+  }
+</script>
+</body>
+</html>
