@@ -34,26 +34,26 @@ export const BROOK = {
 // most a very faint low breath of flame under it all.
 export const FIRE = {
   seconds: 9,          // the loop's length (it repeats with no seam)
-  crackles: 70,        // tiny crackles a second, all told
-  cluster: 6,          // crackles in a cluster, on average (1: each on its own, evenly scattered)
-  clusterLen: 0.08,    // seconds a cluster is spread over
-  crackleShort: 0.5,   // a crackle's length, ms: shortest ...
-  crackleLong: 4,      // ... and longest
-  bright: 0.6,         // how bright the crackles are on average (0 dull ticks .. 1 sharp, glassy snaps)
-  spread: 30,          // how much louder the loudest crackle is than the softest, dB
-  crackleLevel: 0.45,  // the crackles' loudness (next to a pop's crack at 1)
-  pops: 0.9,           // big pops a second
-  popLen: 1.2,         // a pop's crack, ms (each half to one and a half times this): short is sharp, long is popcorn
-  popBright: 0.95,     // how bright a pop's crack is (0 dull .. 1 a sharp snap)
-  popSnap: 0.6,        // a second tiny crack a few ms after the first (the split of the wood): how loud
-  knock: 0.15,         // the woody knock under a pop: how loud (a big, long knock reads as popcorn)
-  knockLen: 12,        // the knock's length, ms
-  knockTone: 900,      // the knock's darkness, Hz (lower: a deeper, duller thud)
-  settles: 0.08,       // log shifts a second (0.08: one about every twelve seconds)
-  settleLevel: 0.12,   // how loud a log settling is
-  breath: 0.006,       // the low breath of flame under it all (0: none)
-  lowpass: 9000,       // the whole fire's top end softened above this, Hz
-  level: 0.2,          // the loop's loudest moment
+  crackles: 121,       // tiny crackles a second, all told
+  cluster: 20,         // crackles in a cluster, on average (1: each on its own, evenly scattered)
+  clusterLen: 0.4,     // seconds a cluster is spread over
+  crackleShort: 1.1,   // a crackle's length, ms: shortest ...
+  crackleLong: 12,     // ... and longest
+  bright: 1,           // how bright the crackles are on average (0 dull ticks .. 1 sharp, glassy snaps)
+  spread: 37,          // how much louder the loudest crackle is than the softest, dB
+  crackleLevel: 0.28,  // the crackles' loudness (next to a pop's crack at 1)
+  pops: 0.5,         // big pops a second
+  popLen: 0.2,         // a pop's crack, ms (each half to one and a half times this): short is sharp, long is popcorn
+  popBright: 1,        // how bright a pop's crack is (0 dull .. 1 a sharp snap)
+  popSnap: 0.29,       // a second tiny crack a few ms after the first (the split of the wood): how loud
+  knock: 0.48,         // the woody knock under a pop: how loud (a big, long knock reads as popcorn)
+  knockLen: 12,       // the knock's length, ms
+  knockTone: 1500,     // the knock's darkness, Hz (lower: a deeper, duller thud)
+  settles: 0.22,       // log shifts a second (0.08: one about every twelve seconds)
+  settleLevel: 0.26,   // how loud a log settling is
+  breath: 0.05,        // the low breath of flame under it all (0: none)
+  lowpass: 16000,      // the whole fire's top end softened above this, Hz
+  level: 0.67,         // the loop's loudest moment
 };
 
 const TAU = Math.PI * 2;
