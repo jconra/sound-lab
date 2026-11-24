@@ -24,7 +24,7 @@
     .rail { position: relative; flex: 0 0 170px; border-right: 1px solid #0e2030; overflow-y: auto; background: rgba(0,238,255,0.015); transition: flex-basis 0.16s ease; touch-action: pan-y; }
     /* collapsed = ZERO layout width; the header becomes a small floating tab over the stage corner so the graph gets the full screen */
     .rail.collapsed { flex-basis: 0; overflow: visible; border-right: none; }
-    .rail.collapsed .prow, .rail.collapsed .newbtn, .rail.collapsed .ghint, .rail.collapsed .ghdr { display: none; }
+    .rail.collapsed .prow, .rail.collapsed .newbtn, .rail.collapsed .ghint, .rail.collapsed .ghdr, .rail.collapsed .phdr, .rail.collapsed .proj { display: none; }
     .rail .rhead { padding: 9px 10px; font-size: 10px; letter-spacing: 0.16em; color: #00eeff; background: rgba(0,238,255,0.05); border-bottom: 1px solid #0e2030; position: sticky; top: 0; cursor: pointer; user-select: none; display: flex; align-items: center; justify-content: space-between; gap: 6px; }
     .rail .rhead .car { transition: transform 0.16s; }
     .rail.collapsed .rhead { position: absolute; top: 6px; left: 0; height: auto; padding: 6px 8px; border: 1px solid #134; border-left: none; border-radius: 0 6px 6px 0; background: rgba(4,12,20,0.92); box-shadow: 0 2px 10px rgba(0,0,0,0.55); z-index: 25; }
@@ -33,6 +33,12 @@
     .rail .preset:hover { background: rgba(0,238,255,0.07); }
     .rail .preset.active { background: rgba(0,238,255,0.14); color: #cfffff; }
     .rail .ghdr { padding: 6px 11px 4px; font-size: 9px; letter-spacing: 0.18em; color: #2a6a7a; background: rgba(0,238,255,0.03); border-top: 1px solid #0e2030; }
+    .rail .phdr { display: flex; align-items: center; gap: 6px; width: 100%; text-align: left; background: rgba(0,238,255,0.06); border: none; border-top: 1px solid #134; color: #7fe8f0; font-family: inherit; font-size: 10px; letter-spacing: 0.16em; padding: 8px 11px; cursor: pointer; }
+    .rail .phdr:hover { background: rgba(0,238,255,0.11); }
+    .rail .phdr .car { display: inline-block; width: 9px; transition: transform 0.16s; }
+    .rail .phdr.folded .car { transform: rotate(-90deg); }
+    .rail .phdr .cnt { margin-left: auto; color: #2a6a7a; font-size: 9px; letter-spacing: 0.04em; }
+    .rail .proj.folded { display: none; }
     .rail .ghint { padding: 10px; font-size: 9px; color: #3a5a6a; line-height: 1.5; border-top: 1px solid #08131c; }
     .rail .newbtn { display: block; width: 100%; text-align: left; background: rgba(0,238,255,0.06); border: none; border-top: 1px solid #08131c; color: #00eeff; font-family: inherit; font-size: 10px; letter-spacing: 0.08em; padding: 8px 11px; cursor: pointer; }
     .rail .newbtn:hover { background: rgba(0,238,255,0.12); }
@@ -173,7 +179,7 @@
     window.addEventListener('unhandledrejection', ev => showErr('promise', ev.reason));
   </script>
   <script type="module">
-    import { playPatch, makeNoiseBuffer, makeImpulse, PATCH_PRESETS } from './patch.js?v=20261124';
+    import { playPatch, makeNoiseBuffer, makeImpulse, PATCH_PRESETS } from './patch.js?v=20261124b';
     import { createEditor3D } from './editor3d.js?v=20260920';
     import { Sequencer, SONGS, INSTRUMENTS } from './seq.js?v=20260920';
     import { createSongTab } from './songtab.js?v=20260920';
@@ -264,16 +270,25 @@
       const out = [];
       for (const [key, preset] of Object.entries(PATCH_PRESETS)) {
         const ov = userPatches[key];   // display uses the BUILT-IN's name/group (canonical); an override only supplies patch data
-        out.push({ key, kind: 'preset', edited: !!ov, patch: ov || preset, label: preset.name || key, group: preset.group || 'PATCHES' });
+        out.push({ key, kind: 'preset', edited: !!ov, patch: ov || preset, label: preset.name || key, group: preset.group || 'PATCHES', project: preset.project || 'shared' });
       }
       for (const [key, p] of Object.entries(userPatches)) {
         if (PATCH_PRESETS[key]) continue;   // overrides already shown above
-        out.push({ key, kind: 'user', edited: false, patch: p, label: p.name || key.replace(/^user:/, ''), group: 'MINE' });
+        out.push({ key, kind: 'user', edited: false, patch: p, label: p.name || key.replace(/^user:/, ''), group: 'MINE', project: 'mine' });
       }
       return out;
     }
     const GROUP_ORDER = ['ENGINES', 'GUNS', 'SYNTH', 'PATCHES', 'MINE'];   // rail section order
     const VEHICLE_ORDER = ['Lurcher', 'Firebrat', 'Valkyrie', 'Jotun'];    // match the Vehicle Designer tab order
+    // the rail is by project, then by type: a project (sounds/<project>.js) folds shut and stays as it was left
+    const PROJECTS = [['rmrf', 'RMRF'], ['mathwood', 'Mathwood'], ['pi-nebula', 'Pi Nebula'], ['shared', 'Shared'], ['mine', 'Mine']];
+    const FOLD_KEY = 'sl.rail.folded.v1';
+    let folded = (() => { try { return new Set(JSON.parse(localStorage.getItem(FOLD_KEY)) || []); } catch { return new Set(); } })();
+    function toggleFold(proj) {
+      folded.has(proj) ? folded.delete(proj) : folded.add(proj);
+      try { localStorage.setItem(FOLD_KEY, JSON.stringify([...folded])); } catch {}
+      renderRail();
+    }
     const statEl = document.getElementById('savestat');
     let statTimer = null;
     function flashStat(txt) {   // brief, unobtrusive "saved ✓" in the header — confirms auto-save without a button
@@ -282,36 +297,49 @@
     }
 
     function renderRail() {
-      [...rail.querySelectorAll('.prow, .ghint, .newbtn, .ghdr')].forEach(n => n.remove());
+      [...rail.querySelectorAll('.prow, .ghint, .newbtn, .ghdr, .phdr, .proj')].forEach(n => n.remove());
       const nb = document.createElement('button'); nb.className = 'newbtn'; nb.textContent = '＋ NEW PATCH';
       nb.addEventListener('click', newBlank); rail.appendChild(nb);
-      const es = entries();
-      const groups = [...new Set(es.map(e => e.group))];
-      const order = [...GROUP_ORDER.filter(g => groups.includes(g)), ...groups.filter(g => !GROUP_ORDER.includes(g))];
-      order.forEach(g => {
-        const items = es.filter(e => e.group === g);
-        if (!items.length) return;
-        items.sort((a, b) => {   // vehicle groups follow the Designer order; others keep their listing order
-          const ia = VEHICLE_ORDER.indexOf(a.label), ib = VEHICLE_ORDER.indexOf(b.label);
-          if (ia === -1 && ib === -1) return 0;
-          if (ia === -1) return 1; if (ib === -1) return -1;
-          return ia - ib;
-        });
-        const hdr = document.createElement('div'); hdr.className = 'ghdr'; hdr.textContent = g; rail.appendChild(hdr);
-        items.forEach(e => {
-          const row = document.createElement('div'); row.className = 'prow';
-          const b = document.createElement('button'); b.className = 'preset' + (e.key === activeKey ? ' active' : '');
-          b.innerHTML = e.label + (e.edited ? ' <span class="ed">*</span>' : '');
-          b.addEventListener('click', () => selectEntry(e.key));
-          row.appendChild(b);
-          if (e.edited || e.kind === 'user') {
-            const act = document.createElement('button'); act.className = 'pact';
-            act.textContent = e.kind === 'user' ? '✕' : '↺';
-            act.title = e.kind === 'user' ? 'Delete this patch' : 'Revert to built-in';
-            act.addEventListener('click', ev => { ev.stopPropagation(); removeEntry(e); });
-            row.appendChild(act);
-          }
-          rail.appendChild(row);
+      const all = entries();
+      const projs = [...PROJECTS.map(p => p[0]).filter(p => all.some(e => e.project === p)),
+                     ...[...new Set(all.map(e => e.project))].filter(p => !PROJECTS.some(q => q[0] === p))];
+      projs.forEach(proj => {
+        const es = all.filter(e => e.project === proj);
+        const title = (PROJECTS.find(p => p[0] === proj) || [proj, proj])[1];
+        const ph = document.createElement('button'); ph.className = 'phdr' + (folded.has(proj) ? ' folded' : '');
+        ph.dataset.project = proj;
+        ph.innerHTML = `<span class="car">▾</span><span>${title}</span><span class="cnt">${es.length}</span>`;
+        ph.addEventListener('click', () => toggleFold(proj));
+        rail.appendChild(ph);
+        const box = document.createElement('div'); box.className = 'proj' + (folded.has(proj) ? ' folded' : '');
+        box.dataset.project = proj; rail.appendChild(box);
+        const groups = [...new Set(es.map(e => e.group))];
+        const order = [...GROUP_ORDER.filter(g => groups.includes(g)), ...groups.filter(g => !GROUP_ORDER.includes(g))];
+        order.forEach(g => {
+          const items = es.filter(e => e.group === g);
+          if (!items.length) return;
+          items.sort((a, b) => {   // vehicle groups follow the Designer order; others keep their listing order
+            const ia = VEHICLE_ORDER.indexOf(a.label), ib = VEHICLE_ORDER.indexOf(b.label);
+            if (ia === -1 && ib === -1) return 0;
+            if (ia === -1) return 1; if (ib === -1) return -1;
+            return ia - ib;
+          });
+          const hdr = document.createElement('div'); hdr.className = 'ghdr'; hdr.textContent = g; box.appendChild(hdr);
+          items.forEach(e => {
+            const row = document.createElement('div'); row.className = 'prow';
+            const b = document.createElement('button'); b.className = 'preset' + (e.key === activeKey ? ' active' : '');
+            b.innerHTML = e.label + (e.edited ? ' <span class="ed">*</span>' : '');
+            b.addEventListener('click', () => selectEntry(e.key));
+            row.appendChild(b);
+            if (e.edited || e.kind === 'user') {
+              const act = document.createElement('button'); act.className = 'pact';
+              act.textContent = e.kind === 'user' ? '✕' : '↺';
+              act.title = e.kind === 'user' ? 'Delete this patch' : 'Revert to built-in';
+              act.addEventListener('click', ev => { ev.stopPropagation(); removeEntry(e); });
+              row.appendChild(act);
+            }
+            box.appendChild(row);
+          });
         });
       });
       const hint = document.createElement('div'); hint.className = 'ghint';
