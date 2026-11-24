@@ -157,16 +157,20 @@ export const PI_NEBULA_PATCHES = {
   ] },
 
   // ── bass ───────────────────────────────────────────────────────────────────────────────────────────────────────
-  // WARM: a sine with a soft triangle an octave up, low-passed (the lo-fi bass)
+  // WARM: a sine for the floor and a saw at the same note, low-passed so only its first handful of overtones is left:
+  // round and soft, but heard. (It was a sine with a quiet triangle an octave up: as loud as the other basses on a
+  // meter and almost nothing on a speaker, since nearly all of it sat under 150 Hz. The game's maker, 2026-11-24: "the
+  // warm bass is really quite. you can barely hear it ... Compared to the other bass sounds". Measured alone, a note at
+  // C2 and at G1: everything above 150 Hz was 11 to 20 dB under the other basses'; it is now among them, -27 to -28 dB.)
   'TECHNO — WARM BASS': { group: 'MUSIC', project: 'pi-nebula', name: 'Warm bass', kind: 'bass', dur: 1.5, nodes: [
     { id: 'b-osc', type: 'osc', name: 'body', wave: 'sine', freq: 65.406, level: 1 },
-    { id: 'b-oct', type: 'osc', name: 'octave', wave: 'triangle', freq: 130.81, level: 0.22 },
-    { id: 'b-f', type: 'filter', name: 'tone', ftype: 'lowpass', freq: 700, Q: 0.7 },
+    { id: 'b-saw', type: 'osc', name: 'warmth', wave: 'sawtooth', freq: 65.406, level: 1.4 },
+    { id: 'b-f', type: 'filter', name: 'tone', ftype: 'lowpass', freq: 560, Q: 0.7 },
     { id: 'b-g', type: 'gain', name: 'vca' },
     { id: 'b-e', type: 'env', name: 'amp', peak: 1, attack: 0.012, decay: 0.1, sustain: 0.85, release: 0.12 },
-    { id: 'out', type: 'out', name: 'output', gain: 0.28 },
+    { id: 'out', type: 'out', name: 'output', gain: 0.17 },
   ], cables: [
-    { from: 'b-osc', to: 'b-f' }, { from: 'b-oct', to: 'b-f' }, { from: 'b-f', to: 'b-g' }, { from: 'b-e', to: 'b-g', port: 'gain' }, { from: 'b-g', to: 'out' },
+    { from: 'b-osc', to: 'b-g' }, { from: 'b-saw', to: 'b-f' }, { from: 'b-f', to: 'b-g' }, { from: 'b-e', to: 'b-g', port: 'gain' }, { from: 'b-g', to: 'out' },
   ] },
   // PULSE: a saw whose filter snaps shut on each note (the off-beat techno bass)
   'TECHNO — PULSE BASS': { group: 'MUSIC', project: 'pi-nebula', name: 'Pulse bass', kind: 'bass', dur: 0.6, nodes: [
