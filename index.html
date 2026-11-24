@@ -327,7 +327,7 @@
           const hdr = document.createElement('div'); hdr.className = 'ghdr'; hdr.textContent = g; box.appendChild(hdr);
           items.forEach(e => {
             const row = document.createElement('div'); row.className = 'prow';
-            const b = document.createElement('button'); b.className = 'preset' + (e.key === activeKey ? ' active' : '');
+            const b = document.createElement('button'); b.className = 'preset' + (e.key === activeKey ? ' active' : ''); b.dataset.key = e.key;
             b.innerHTML = e.label + (e.edited ? ' <span class="ed">*</span>' : '');
             b.addEventListener('click', () => selectEntry(e.key));
             row.appendChild(b);
