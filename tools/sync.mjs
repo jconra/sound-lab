@@ -23,12 +23,12 @@ const SOUNDS = {
 // The shared sounds (SYNTH, DEMO) each game plays, by name. None today: RMRF's and Mathwood's copies carry the six of
 // them, but nothing in either game plays one (2026-11-24, read through each game's code).
 const SHARED_FOR = { rmrf: [], mathwood: [], 'pi-nebula': [] };
-// The games' copies on this machine (paths from the home folder), for --check. Pi Nebula keeps its sounds in a second
-// file today (patchesIn); once it takes the synced file, that file reads them from it.
+// The games' copies on this machine (paths from the home folder), for --check. (patchesIn: a game that keeps its sounds
+// in a second file; none does today, Pi Nebula's copy has been the synced file since 2026-11-24.)
 const COPIES = {
   rmrf: [{ file: 'rmrf/js/patch.js' }, { file: 'rmrf/vehicle-designer/js/patch.js' }],
   mathwood: [{ file: 'math-games/mathwood-valley/src/audio/patch.js' }],
-  'pi-nebula': [{ file: 'math-games/pi-nebula/src/audio/patch.js', patchesIn: { file: 'math-games/pi-nebula/src/music/patches.js', name: 'TECHNO_PATCHES' } }],
+  'pi-nebula': [{ file: 'math-games/pi-nebula/src/audio/patch.js' }],
 };
 
 const read = (f) => fs.readFileSync(path.join(LAB, f), 'utf8');
