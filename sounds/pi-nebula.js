@@ -182,16 +182,6 @@ export const PI_NEBULA_PATCHES = {
   ], cables: [
     { from: 'b-osc', to: 'b-f' }, { from: 'b-f', to: 'b-g' }, { from: 'b-e', to: 'b-g', port: 'gain' }, { from: 'b-g', to: 'out' },
   ] },
-  // ROLLING: shorter and darker, for sixteenths between the kicks
-  'TECHNO — ROLLING BASS': { group: 'MUSIC', project: 'pi-nebula', name: 'Rolling bass', kind: 'bass', dur: 0.4, nodes: [
-    { id: 'b-osc', type: 'osc', name: 'saw', wave: 'sawtooth', freq: 65.406, level: 1 },
-    { id: 'b-f', type: 'filter', name: 'snap', ftype: 'lowpass', freq: 800, freqEnd: 220, glide: 0.12, Q: 2 },
-    { id: 'b-g', type: 'gain', name: 'vca' },
-    { id: 'b-e', type: 'env', name: 'amp', peak: 1, attack: 0.004, decay: 0.06, sustain: 0.6, release: 0.04 },
-    { id: 'out', type: 'out', name: 'output', gain: 0.52 },
-  ], cables: [
-    { from: 'b-osc', to: 'b-f' }, { from: 'b-f', to: 'b-g' }, { from: 'b-e', to: 'b-g', port: 'gain' }, { from: 'b-g', to: 'out' },
-  ] },
   // WOBBLE: the growl. Two saws a little apart through a resonant low-pass whose cutoff a slow sine (the LFO, x520
   // through a MULT) swings up and down: the wobble. A plain sine an octave down holds the floor. The player sets the
   // LFO's speed for each note in time with the beat (its 'w-lfo' freq), so it is written here at 2 a second.
@@ -267,6 +257,25 @@ export const PI_NEBULA_PATCHES = {
     { from: 'mix', to: 'body-f' }, { from: 'body-f', to: 'body-g' }, { from: 'body-g', to: 'sat' }, { from: 'mix', to: 'bite-f' },
     { from: 'bite-f', to: 'bite-g' }, { from: 'bite-g', to: 'sat' }, { from: 'sat', to: 'hp' }, { from: 'hp', to: 'out' },
   ] },
+  // ACID: a square wave through a low-pass that rings (a lot of resonance) and squelches open on each note, as the
+  // little silver bass machines of acid house do. Its experiment: how far each note's squelch opens is a stepped
+  // random value (a noise at one step every half second, as a sample-and-hold) into the MULT that scales the sweep, so
+  // no two notes in a row squelch the same. Grit before the fade. Most of it sits above 150 Hz, where a small speaker
+  // plays it, not only under it. Its notes are the FM ladder's (short, round the beat, some an octave up).
+  'TECHNO — ACID BASS': { group: 'MUSIC', project: 'pi-nebula', name: 'Acid bass', kind: 'bass', dur: 0.5, nodes: [
+    { id: 'a-osc', type: 'osc', name: 'square', wave: 'square', freq: 65.406, level: 1 },
+    { id: 'a-f', type: 'filter', name: 'squelch', ftype: 'lowpass', freq: 300, Q: 8 },
+    { id: 'a-fe', type: 'env', name: 'squelch fade', peak: 1, attack: 0.003, decay: 0.2, sustain: 0 },
+    { id: 'a-rnd', type: 'noise', name: 'random', freq: 2, steps: 1, rate: 1, level: 450, loopLen: 4 },
+    { id: 'a-mul', type: 'math', name: 'how far', mul: 950 },
+    { id: 'a-g', type: 'gain', name: 'vca' },
+    { id: 'a-e', type: 'env', name: 'amp', peak: 1, attack: 0.004, decay: 0.12, sustain: 0.6, release: 0.06 },
+    { id: 'a-sat', type: 'shaper', name: 'grit', grit: 0.2 },
+    { id: 'out', type: 'out', name: 'output', gain: 1.15 },
+  ], cables: [
+    { from: 'a-osc', to: 'a-f' }, { from: 'a-fe', to: 'a-mul' }, { from: 'a-rnd', to: 'a-mul', port: 'mul' }, { from: 'a-mul', to: 'a-f', port: 'freq' },
+    { from: 'a-f', to: 'a-sat' }, { from: 'a-sat', to: 'a-g' }, { from: 'a-e', to: 'a-g', port: 'gain' }, { from: 'a-g', to: 'out' },
+  ] },
   // ── pads (one note of the chord each) ──────────────────────────────────────────────────────────────────────────
   'TECHNO — WARM PAD': { group: 'MUSIC', project: 'pi-nebula', name: 'Warm pad', kind: 'instrument', dur: 4, nodes: [
     { id: 'p-osc', type: 'osc', name: 'saws', wave: 'sawtooth', voices: 2, detune: 7, freq: 261.63, level: 1 },
@@ -297,6 +306,47 @@ export const PI_NEBULA_PATCHES = {
     { id: 'out', type: 'out', name: 'output', gain: 0.11 },
   ], cables: [
     { from: 'p-osc', to: 'p-f' }, { from: 'p-f', to: 'p-g' }, { from: 'p-e', to: 'p-g', port: 'gain' }, { from: 'p-g', to: 'out' }, { from: 'p-g', to: 'send' },
+  ] },
+  // GLASS: two FM operators in a chain (the FM ladder's way, its long comment above): a sine at three times the note
+  // bending the phase of a sine at the note, which is heard. How hard it bends follows the note's own fade (each chord
+  // brightens as it swells in) plus a slow sine (the LFO, a few seconds round) that sways it between nearly plain and
+  // glassy while the chord holds. Lean for a pad: three oscillators and one envelope a note. A low-pass takes the top
+  // off. Bend at its fullest: about 1.5 radians. (Its "to phase" band-pass is at 2500 Hz, not the bass's 5000: written at
+  // C4 with a bender up to 3.5 times the note, and moved up two octaves, it must stay under the top of what a sound can
+  // carry. Here a bend of 1 radian is a freqMod of 1784.)
+  'TECHNO — GLASS PAD': { group: 'MUSIC', project: 'pi-nebula', name: 'Glass pad', kind: 'instrument', dur: 4, nodes: [
+    { id: 'm', type: 'osc', name: 'bender x3', wave: 'sine', freq: 784.89, detune: 4, level: 1 },
+    { id: 'm-lfo', type: 'osc', name: 'slow sway', wave: 'sine', freq: 0.23, level: 0.45 },
+    { id: 'm-v', type: 'gain', name: 'bend amount', gain: 0 },
+    { id: 'm-d', name: 'to phase', type: 'filter', ftype: 'bandpass', freq: 2500, Q: 0.7071 },
+    { id: 'p', type: 'osc', name: 'heard x1', wave: 'sine', freq: 261.63, freqMod: 1873, level: 1 },
+    { id: 'p-g', type: 'gain', name: 'vca' },
+    { id: 'p-e', type: 'env', name: 'amp', peak: 1, attack: 0.6, decay: 0.4, sustain: 0.8, release: 1 },
+    { id: 'p-f', type: 'filter', name: 'tone', ftype: 'lowpass', freq: 2200, Q: 0.6 },
+    { id: 'send', type: 'send', name: 'room', gain: 0.3 },
+    { id: 'out', type: 'out', name: 'output', gain: 0.098 },
+  ], cables: [
+    { from: 'm', to: 'm-v' }, { from: 'p-e', to: 'm-v', port: 'gain' }, { from: 'm-lfo', to: 'm-v', port: 'gain' }, { from: 'm-v', to: 'm-d' },
+    { from: 'm-d', to: 'p', port: 'freq' }, { from: 'p', to: 'p-g' }, { from: 'p-e', to: 'p-g', port: 'gain' }, { from: 'p-g', to: 'p-f' },
+    { from: 'p-f', to: 'out' }, { from: 'p-f', to: 'send' },
+  ] },
+  // DRIFT: a choir's "ooh" (the wave table PhonemeOoh, cut to its first 11 harmonics), two of it a little apart,
+  // through a low-pass with some resonance whose cutoff wanders at random: a stepped random value (a noise at one step
+  // every 0.8 s, a sample-and-hold) smoothed by a very low low-pass so it glides rather than jumps, into the cutoff
+  // through a MULT. The "ooh" opens and closes a little on its own, never the same twice in a row.
+  'TECHNO — DRIFT PAD': { group: 'MUSIC', project: 'pi-nebula', name: 'Drift pad', kind: 'instrument', dur: 4, nodes: [
+    { id: 'd-osc', type: 'osc', name: 'ooh', wave: 'custom', waveName: 'PhonemeOoh', harm: { real: [0, -0.37087, 0.28828, -0.45489, 0.06156, 0.04943, -0.01292, 0.12955, -0.04169, -0.01259, -0.00632, 0.00813], imag: [0, 0.04654, 0.25693, 0.01937, -0.4962, 0.01605, -0.06362, 0.02134, -0.00787, -0.02046, 0.00991, 0.00316] }, voices: 2, detune: 7, freq: 261.63, level: 1 },
+    { id: 'd-f', type: 'filter', name: 'mouth', ftype: 'lowpass', freq: 1000, Q: 2.2 },
+    { id: 'd-rnd', type: 'noise', name: 'wander', freq: 1.25, steps: 1, rate: 1, level: 1, loopLen: 8 },
+    { id: 'd-sm', type: 'filter', name: 'glide', ftype: 'lowpass', freq: 3, Q: 0.5 },
+    { id: 'd-mul', type: 'math', name: 'x550', mul: 550 },
+    { id: 'd-g', type: 'gain', name: 'vca' },
+    { id: 'd-e', type: 'env', name: 'amp', peak: 1, attack: 0.8, decay: 0.4, sustain: 0.85, release: 1.1 },
+    { id: 'send', type: 'send', name: 'room', gain: 0.35 },
+    { id: 'out', type: 'out', name: 'output', gain: 0.112 },
+  ], cables: [
+    { from: 'd-osc', to: 'd-f' }, { from: 'd-rnd', to: 'd-sm' }, { from: 'd-sm', to: 'd-mul' }, { from: 'd-mul', to: 'd-f', port: 'freq' },
+    { from: 'd-f', to: 'd-g' }, { from: 'd-e', to: 'd-g', port: 'gain' }, { from: 'd-g', to: 'out' }, { from: 'd-g', to: 'send' },
   ] },
 
   // ── leads ──────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -335,6 +385,50 @@ export const PI_NEBULA_PATCHES = {
     { id: 'out', type: 'out', name: 'output', gain: 0.12 },
   ], cables: [
     { from: 'l-osc', to: 'l-f' }, { from: 'l-f', to: 'l-g' }, { from: 'l-e', to: 'l-g', port: 'gain' }, { from: 'l-g', to: 'out' }, { from: 'l-g', to: 'send' },
+  ] },
+  // FM HORN: three FM operators in a chain (the FM ladder's way): A at twice the note bends B at the note, B bends C
+  // at the note, which is heard. One swell (its own envelope) sets how hard both bend: up fast at the start of the
+  // note and settling lower, the brassy "bwah" FM synths make a horn with. Bends at their fullest: A into B 0.6
+  // radians, B into C 1.8 (band-passes at 2500 Hz, as the glass pad's).
+  'TECHNO — FM HORN': { group: 'MUSIC', project: 'pi-nebula', name: 'FM horn', kind: 'instrument', dur: 1.5, nodes: [
+    { id: 'a', type: 'osc', name: 'A x2', wave: 'sine', freq: 523.26, detune: 3, level: 1 },
+    { id: 'a-v', type: 'gain', name: 'A amount', gain: 0 },
+    { id: 'a-d', name: 'A to phase', type: 'filter', ftype: 'bandpass', freq: 2500, Q: 0.7071 },
+    { id: 'b', type: 'osc', name: 'B x1', wave: 'sine', freq: 261.63, detune: -3, freqMod: 1070, level: 1 },
+    { id: 'b-v', type: 'gain', name: 'B amount', gain: 0 },
+    { id: 'b-d', name: 'B to phase', type: 'filter', ftype: 'bandpass', freq: 2500, Q: 0.7071 },
+    { id: 'sw', type: 'env', name: 'swell', peak: 1, attack: 0.05, decay: 0.3, sustain: 0.55, release: 0.15 },
+    { id: 'c', type: 'osc', name: 'C (heard)', wave: 'sine', freq: 261.63, freqMod: 3211, level: 1 },
+    { id: 'c-g', type: 'gain', name: 'vca' },
+    { id: 'c-e', type: 'env', name: 'amp', peak: 1, attack: 0.03, decay: 0.2, sustain: 0.8, release: 0.15 },
+    { id: 'c-f', type: 'filter', name: 'tone', ftype: 'lowpass', freq: 3000, Q: 0.6 },
+    { id: 'send', type: 'send', name: 'room', gain: 0.22 },
+    { id: 'out', type: 'out', name: 'output', gain: 0.16 },
+  ], cables: [
+    { from: 'a', to: 'a-v' }, { from: 'sw', to: 'a-v', port: 'gain' }, { from: 'a-v', to: 'a-d' }, { from: 'a-d', to: 'b', port: 'freq' },
+    { from: 'b', to: 'b-v' }, { from: 'sw', to: 'b-v', port: 'gain' }, { from: 'b-v', to: 'b-d' }, { from: 'b-d', to: 'c', port: 'freq' },
+    { from: 'c', to: 'c-g' }, { from: 'c-e', to: 'c-g', port: 'gain' }, { from: 'c-g', to: 'c-f' }, { from: 'c-f', to: 'out' },
+    { from: 'c-f', to: 'send' },
+  ] },
+  // RING: ring modulation. A triangle at the note goes through a VCA whose gain plug gets a sine at twice the note on
+  // top of a steady level, so the two multiply: the triangle's own harmonics, and new ones either side of each, all
+  // still on the note's harmonics (it stays in tune). How much of the sine gets in is swept by a slow sine (an LFO,
+  // about three seconds round), so the tone sways between plain and a hollow, bell-like buzz.
+  'TECHNO — RING LEAD': { group: 'MUSIC', project: 'pi-nebula', name: 'Ring lead', kind: 'instrument', dur: 1.5, nodes: [
+    { id: 'r-osc', type: 'osc', name: 'triangle', wave: 'triangle', freq: 261.63, level: 1 },
+    { id: 'r-mod', type: 'osc', name: 'ring x2', wave: 'sine', freq: 523.26, level: 1 },
+    { id: 'r-lfo', type: 'osc', name: 'slow sway', wave: 'sine', freq: 0.35, level: 0.35 },
+    { id: 'r-dep', type: 'gain', name: 'ring depth', gain: 0.4 },
+    { id: 'r-ring', type: 'gain', name: 'ring', gain: 0.6 },
+    { id: 'r-f', type: 'filter', name: 'tone', ftype: 'lowpass', freq: 2600, Q: 0.7 },
+    { id: 'r-g', type: 'gain', name: 'vca' },
+    { id: 'r-e', type: 'env', name: 'amp', peak: 1, attack: 0.015, decay: 0.2, sustain: 0.8, release: 0.15 },
+    { id: 'send', type: 'send', name: 'room', gain: 0.22 },
+    { id: 'out', type: 'out', name: 'output', gain: 0.21 },
+  ], cables: [
+    { from: 'r-mod', to: 'r-dep' }, { from: 'r-lfo', to: 'r-dep', port: 'gain' }, { from: 'r-dep', to: 'r-ring', port: 'gain' }, { from: 'r-osc', to: 'r-ring' },
+    { from: 'r-ring', to: 'r-f' }, { from: 'r-f', to: 'r-g' }, { from: 'r-e', to: 'r-g', port: 'gain' }, { from: 'r-g', to: 'out' },
+    { from: 'r-g', to: 'send' },
   ] },
 
   // ── melodies ───────────────────────────────────────────────────────────────────────────────────────────────────
@@ -375,6 +469,47 @@ export const PI_NEBULA_PATCHES = {
   ], cables: [
     { from: 'e-osc', to: 'e-f' }, { from: 'e-f', to: 'e-g' }, { from: 'e-e', to: 'e-g', port: 'gain' }, { from: 'e-g', to: 'out' }, { from: 'e-g', to: 'send' },
     { from: 'e-g', to: 'e-dl' }, { from: 'e-we', to: 'e-dl', port: 'wet' }, { from: 'e-dl', to: 'out' },
+  ] },
+  // CRYSTAL: an FM bell, three operators in a chain (the FM ladder's way): A at the note bends B at three and a half
+  // times the note, B bends C at the note, which is heard. Three and a half is not a whole number, so the bends add
+  // partials between the note's harmonics: a bell or a glass struck, not a string. The bends die away fast after the
+  // strike (their own envelope) and the bell rings on nearly plain. Bends at the strike: A into B 0.5 radians, B into
+  // C 1.0 (band-passes at 2500 Hz, as the glass pad's). It plays the echo's few notes a bar.
+  'TECHNO — CRYSTAL': { group: 'MUSIC', project: 'pi-nebula', name: 'Crystal', kind: 'instrument', dur: 1.6, nodes: [
+    { id: 'a', type: 'osc', name: 'A x1', wave: 'sine', freq: 261.63, detune: 4, level: 1 },
+    { id: 'a-v', type: 'gain', name: 'A amount', gain: 0 },
+    { id: 'a-d', name: 'A to phase', type: 'filter', ftype: 'bandpass', freq: 2500, Q: 0.7071 },
+    { id: 'b', type: 'osc', name: 'B x3.5', wave: 'sine', freq: 915.71, freqMod: 892, level: 1 },
+    { id: 'b-v', type: 'gain', name: 'B amount', gain: 0 },
+    { id: 'b-d', name: 'B to phase', type: 'filter', ftype: 'bandpass', freq: 2500, Q: 0.7071 },
+    { id: 'st', type: 'env', name: 'strike', peak: 1, attack: 0.004, decay: 0.35, sustain: 0 },
+    { id: 'c', type: 'osc', name: 'C (heard)', wave: 'sine', freq: 261.63, freqMod: 1784, level: 1 },
+    { id: 'c-g', type: 'gain', name: 'vca' },
+    { id: 'c-e', type: 'env', name: 'ring', peak: 1, attack: 0.004, decay: 1, sustain: 0 },
+    { id: 'send', type: 'send', name: 'room', gain: 0.35 },
+    { id: 'out', type: 'out', name: 'output', gain: 0.26 },
+  ], cables: [
+    { from: 'a', to: 'a-v' }, { from: 'st', to: 'a-v', port: 'gain' }, { from: 'a-v', to: 'a-d' }, { from: 'a-d', to: 'b', port: 'freq' },
+    { from: 'b', to: 'b-v' }, { from: 'st', to: 'b-v', port: 'gain' }, { from: 'b-v', to: 'b-d' }, { from: 'b-d', to: 'c', port: 'freq' },
+    { from: 'c', to: 'c-g' }, { from: 'c-e', to: 'c-g', port: 'gain' }, { from: 'c-g', to: 'out' }, { from: 'c-g', to: 'send' },
+  ] },
+  // BLIPS: a short square-wave pluck through a ringing low-pass whose cutoff jumps about at random: a stepped random
+  // value (a noise at one step every 1/14 s, a sample-and-hold) into the cutoff through a MULT, each step eased over a
+  // few thousandths of a second (a low-pass on the steps) so the jumps never click. A little computer chattering in
+  // tune: every blip a different colour. It plays the arp's notes.
+  'TECHNO — BLIPS': { group: 'MUSIC', project: 'pi-nebula', name: 'Blips', kind: 'instrument', dur: 0.6, nodes: [
+    { id: 'b-osc', type: 'osc', name: 'square', wave: 'square', freq: 261.63, level: 1 },
+    { id: 'b-f', type: 'filter', name: 'ringing', ftype: 'lowpass', freq: 900, Q: 4 },
+    { id: 'b-rnd', type: 'noise', name: 'random', freq: 14, steps: 1, rate: 1, level: 1, loopLen: 2 },
+    { id: 'b-sm', type: 'filter', name: 'ease', ftype: 'lowpass', freq: 60, Q: 0.5 },
+    { id: 'b-mul', type: 'math', name: 'x400', mul: 400 },
+    { id: 'b-g', type: 'gain', name: 'vca' },
+    { id: 'b-e', type: 'env', name: 'amp', peak: 1, attack: 0.003, decay: 0.16, sustain: 0 },
+    { id: 'send', type: 'send', name: 'room', gain: 0.25 },
+    { id: 'out', type: 'out', name: 'output', gain: 0.24 },
+  ], cables: [
+    { from: 'b-osc', to: 'b-f' }, { from: 'b-rnd', to: 'b-sm' }, { from: 'b-sm', to: 'b-mul' }, { from: 'b-mul', to: 'b-f', port: 'freq' },
+    { from: 'b-f', to: 'b-g' }, { from: 'b-e', to: 'b-g', port: 'gain' }, { from: 'b-g', to: 'out' }, { from: 'b-g', to: 'send' },
   ] },
   // ── end of PI NEBULA ──
 };
