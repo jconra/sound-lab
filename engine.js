@@ -73,17 +73,21 @@ function distortionCurve(amount) {
 // drawn in the editor. The table travels inside the patch, so a patch that uses one plays
 // anywhere patch.js does - the game included - with no wave library to ship alongside.
 // PeriodicWaves are cached per context and table, since every voice of every note would
-// otherwise build one.
-const _pwCache = new WeakMap();
+// otherwise build one. At most PW_KEEP tables a context, the least lately used let go first: the
+// browser keeps about 0.6 MB for each one (its band-limited copies), so a game that makes new
+// tables as it goes (Pi Nebula's Random button: a new table each press) would otherwise pile up
+// memory without end (measured: 400 new tables, +229 MB in Chrome). A voice still playing a wave
+// that was let go keeps it until it ends.
+const _pwCache = new WeakMap(), PW_KEEP = 32;
 function periodicWaveFor(ctx, harm) {
   let byKey = _pwCache.get(ctx); if (!byKey) { byKey = new Map(); _pwCache.set(ctx, byKey); }
   const key = harm.real.join(',') + '|' + harm.imag.join(',');
   let pw = byKey.get(key);
-  if (!pw) {
-    const n = Math.max(2, Math.min(harm.real.length, harm.imag.length));
-    pw = ctx.createPeriodicWave(Float32Array.from(harm.real.slice(0, n)), Float32Array.from(harm.imag.slice(0, n)), { disableNormalization: false });
-    byKey.set(key, pw);
-  }
+  if (pw) { byKey.delete(key); byKey.set(key, pw); return pw; }   // (the newest last)
+  const n = Math.max(2, Math.min(harm.real.length, harm.imag.length));
+  pw = ctx.createPeriodicWave(Float32Array.from(harm.real.slice(0, n)), Float32Array.from(harm.imag.slice(0, n)), { disableNormalization: false });
+  byKey.set(key, pw);
+  while (byKey.size > PW_KEEP) byKey.delete(byKey.keys().next().value);
   return pw;
 }
 // output depth, so a slow osc into a param modulates it; this absorbs the old lfo node.
