@@ -556,11 +556,15 @@ export const PI_NEBULA_PATCHES = {
   //  that sounds like the lurcher engine (but maybe softer)". Each take is a copy of RMRF's 'LURCHER — ENGINE'
   //  (sounds/rmrf.js), changed, so tuning one never changes the other. Its shape is kept: ONE number, RPMs (0 idle
   //  .. 1 full), that the pitch, the pulse and the brightness all follow; the game moves only that number
-  //  (handle.setValue('rpm', v)). No envelope: an engine drones until the game stops it. The three takes are at the
+  //  (handle.setValue('rpm', v)). No envelope: an engine drones until the game stops it. The four takes are at the
   //  same loudness at a middle RPMs (0.4), half the Lurcher's (-6 dB); they differ in what "softer" leans on:
   //    A  the Lurcher's own sound, only quieter
   //    B  rounder: a triangle wave in place of the square, the tone filter lower (the buzz taken off)
-  //    C  a slower, shallower throb: the pulse about half as quick and half as deep
+  //    C  a gentler, slower throb: the pulse about half as quick, and it never drops out (0.3 to 0.9, where the
+  //       Lurcher's chops right through)
+  //  A, B and C are nearly all below 300 Hz, lower than a phone's own speaker plays. So:
+  //    D  the Lurcher's own sound, quieter, with its tone filter opened (900 -> 1600 Hz) and its lowest hum thinned
+  //       (a highpass at 140 Hz), so its own upper harmonics carry it on a phone's speaker; nothing added to it
   // ════════════════════════════════════════════════════════════════════════════════
   'SHIP — ENGINE A': { group: 'SHIPS', project: 'pi-nebula', name: 'Engine A (quieter)', kind: 'engine', dur: 3, nodes: [
     { id: 'rpm', type: 'value', name: 'RPMs', value: 0, delay: 0 },
@@ -596,7 +600,7 @@ export const PI_NEBULA_PATCHES = {
     { from: 'rpm', to: 'r-cut' }, { from: 'r-cut', to: 'f', port: 'freq' },
     { from: 'osc', to: 'am' }, { from: 'lfo', to: 'am', port: 'gain' }, { from: 'am', to: 'f' }, { from: 'f', to: 'g' }, { from: 'g', to: 'out' },
   ] },
-  'SHIP — ENGINE C': { group: 'SHIPS', project: 'pi-nebula', name: 'Engine C (slower throb)', kind: 'engine', dur: 3, nodes: [
+  'SHIP — ENGINE C': { group: 'SHIPS', project: 'pi-nebula', name: 'Engine C (gentler, slower throb)', kind: 'engine', dur: 3, nodes: [
     { id: 'rpm', type: 'value', name: 'RPMs', value: 0, delay: 0 },
     { id: 'osc', type: 'osc', name: 'servo', wave: 'square', freq: 70, freqMod: 1, voices: 2, detune: 6 },
     { id: 'am', type: 'gain', name: 'pulse', gain: 0.6 },
@@ -612,6 +616,25 @@ export const PI_NEBULA_PATCHES = {
     { from: 'rpm', to: 'r-am' }, { from: 'r-am', to: 'lfo', port: 'freq' },
     { from: 'rpm', to: 'r-cut' }, { from: 'r-cut', to: 'f', port: 'freq' },
     { from: 'osc', to: 'am' }, { from: 'lfo', to: 'am', port: 'gain' }, { from: 'am', to: 'f' }, { from: 'f', to: 'g' }, { from: 'g', to: 'out' },
+  ] },
+
+  'SHIP — ENGINE D': { group: 'SHIPS', project: 'pi-nebula', name: 'Engine D (for a phone)', kind: 'engine', dur: 3, nodes: [
+    { id: 'rpm', type: 'value', name: 'RPMs', value: 0, delay: 0 },
+    { id: 'osc', type: 'osc', name: 'servo', wave: 'square', freq: 70, freqMod: 1, voices: 2, detune: 6 },
+    { id: 'am', type: 'gain', name: 'pulse', gain: 0.4 },
+    { id: 'lfo', type: 'osc', name: 'pulse', wave: 'sine', freq: 20.5, freqMod: 1, level: 0.6 },
+    { id: 'f', type: 'filter', name: 'tone', ftype: 'lowpass', freq: 900, Q: 0.8 },
+    { id: 'hp', type: 'filter', name: 'thin', ftype: 'highpass', freq: 140, Q: 0.7 },
+    { id: 'g', type: 'gain', name: 'servo', gain: 0.36 },
+    { id: 'r-pit', type: 'math', name: 'rev→pitch', mul: 80 },     // 70→150 Hz
+    { id: 'r-am', type: 'math', name: 'rev→pulse', mul: 26.5 },    // 20.5→47 a second
+    { id: 'r-cut', type: 'math', name: 'rev→bright', mul: 700 },   // 900→1600 Hz
+    { id: 'out', type: 'out', name: 'output', gain: 0.555 },
+  ], cables: [
+    { from: 'rpm', to: 'r-pit' }, { from: 'r-pit', to: 'osc', port: 'freq' },
+    { from: 'rpm', to: 'r-am' }, { from: 'r-am', to: 'lfo', port: 'freq' },
+    { from: 'rpm', to: 'r-cut' }, { from: 'r-cut', to: 'f', port: 'freq' },
+    { from: 'osc', to: 'am' }, { from: 'lfo', to: 'am', port: 'gain' }, { from: 'am', to: 'f' }, { from: 'f', to: 'hp' }, { from: 'hp', to: 'g' }, { from: 'g', to: 'out' },
   ] },
 
   // ════════════════════════════════════════════════════════════════════════════════
