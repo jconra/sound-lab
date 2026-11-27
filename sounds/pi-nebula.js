@@ -565,10 +565,11 @@ export const PI_NEBULA_PATCHES = {
   //  A, B and C are nearly all below 300 Hz, lower than a phone's own speaker plays. So:
   //    D  the Lurcher's sound made quieter but brighter and buzzier: its tone filter opened (900 -> 1600 Hz) and its
   //       lowest hum thinned (a highpass at 140 Hz), so its upper tones carry it on a phone's speaker; less soft in tone
-  //       than A (the middle of its sound about 290 Hz at idle against A's 95), the Lurcher's deep chop through it
-  //    E  between A and D: the tone filter opened only as far as a phone needs (500 -> 900 Hz), the lowest hum thinned
-  //       a little (a highpass at 120 Hz), and C's shallower chop (it never drops out): a hum with some body that a
-  //       phone can play (the middle of its sound about 190 Hz at idle)
+  //       than A (the middle of its sound about 275 Hz at idle against A's 97), the Lurcher's deep chop through it
+  //    E  between A and D: quieter than the Lurcher with a gentler throb that never drops out (C's shallower chop), but
+  //       brighter in tone than A (its tone filter opened as far as a phone needs, 500 -> 900 Hz, its lowest hum thinned
+  //       a little by a highpass at 120 Hz), so a phone can still play it; less buzzy than D (the middle of its sound
+  //       about 200 Hz at idle, against A's 97 and D's 275)
   // ════════════════════════════════════════════════════════════════════════════════
   'SHIP — ENGINE A': { group: 'SHIPS', project: 'pi-nebula', name: 'Engine A (quieter)', kind: 'engine', dur: 3, nodes: [
     { id: 'rpm', type: 'value', name: 'RPMs', value: 0, delay: 0 },
@@ -641,7 +642,7 @@ export const PI_NEBULA_PATCHES = {
     { from: 'osc', to: 'am' }, { from: 'lfo', to: 'am', port: 'gain' }, { from: 'am', to: 'f' }, { from: 'f', to: 'hp' }, { from: 'hp', to: 'g' }, { from: 'g', to: 'out' },
   ] },
 
-  'SHIP — ENGINE E': { group: 'SHIPS', project: 'pi-nebula', name: 'Engine E (softer, for a phone)', kind: 'engine', dur: 3, nodes: [
+  'SHIP — ENGINE E': { group: 'SHIPS', project: 'pi-nebula', name: 'Engine E (between A and D, for a phone)', kind: 'engine', dur: 3, nodes: [
     { id: 'rpm', type: 'value', name: 'RPMs', value: 0, delay: 0 },
     { id: 'osc', type: 'osc', name: 'servo', wave: 'square', freq: 70, freqMod: 1, voices: 2, detune: 6 },
     { id: 'am', type: 'gain', name: 'pulse', gain: 0.6 },
