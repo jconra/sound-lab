@@ -1,4 +1,5 @@
-// sounds/pi-nebula.js — Pi Nebula's sounds: the station's techno music.
+// sounds/pi-nebula.js — Pi Nebula's sounds: the station's techno music (MUSIC), the ships' engines (SHIPS), the jump and
+// the chime for a right answer (EFFECTS).
 // Plain data (nodes and cables) for the engine in engine.js; every patch says whose it is (project) and what it is
 // (group). Tune a sound in the lab, write it here, and sync it to the game: node tools/sync.mjs pi-nebula <the game's file>.
 export const PI_NEBULA_PATCHES = {
@@ -549,6 +550,153 @@ export const PI_NEBULA_PATCHES = {
     { id: 'out', type: 'out', name: 'output', gain: 0.2 },
   ], cables: [
     { from: 'r-osc', to: 'r-g' }, { from: 'r-e', to: 'r-g', port: 'gain' }, { from: 'r-g', to: 'out' }, { from: 'r-g', to: 'send' },
+  ] },
+  // ════════════════════════════════════════════════════════════════════════════════
+  //  PI NEBULA — THE SHIPS' ENGINES (2026-11-27). The game's maker: "For engine noises. We could use something
+  //  that sounds like the lurcher engine (but maybe softer)". Each take is a copy of RMRF's 'LURCHER — ENGINE'
+  //  (sounds/rmrf.js), changed, so tuning one never changes the other. Its shape is kept: ONE number, RPMs (0 idle
+  //  .. 1 full), that the pitch, the pulse and the brightness all follow; the game moves only that number
+  //  (handle.setValue('rpm', v)). No envelope: an engine drones until the game stops it. The three takes are at the
+  //  same loudness at a middle RPMs (0.4), half the Lurcher's (-6 dB); they differ in what "softer" leans on:
+  //    A  the Lurcher's own sound, only quieter
+  //    B  rounder: a triangle wave in place of the square, the tone filter lower (the buzz taken off)
+  //    C  a slower, shallower throb: the pulse about half as quick and half as deep
+  // ════════════════════════════════════════════════════════════════════════════════
+  'SHIP — ENGINE A': { group: 'SHIPS', project: 'pi-nebula', name: 'Engine A (quieter)', kind: 'engine', dur: 3, nodes: [
+    { id: 'rpm', type: 'value', name: 'RPMs', value: 0, delay: 0 },
+    { id: 'osc', type: 'osc', name: 'servo', wave: 'square', freq: 70, freqMod: 1, voices: 2, detune: 6 },
+    { id: 'am', type: 'gain', name: 'pulse', gain: 0.4 },
+    { id: 'lfo', type: 'osc', name: 'pulse', wave: 'sine', freq: 20.5, freqMod: 1, level: 0.6 },
+    { id: 'f', type: 'filter', name: 'tone', ftype: 'lowpass', freq: 300, Q: 1 },
+    { id: 'g', type: 'gain', name: 'servo', gain: 0.36 },
+    { id: 'r-pit', type: 'math', name: 'rev→pitch', mul: 80 },     // 70→150 Hz
+    { id: 'r-am', type: 'math', name: 'rev→pulse', mul: 26.5 },    // 20.5→47 a second
+    { id: 'r-cut', type: 'math', name: 'rev→bright', mul: 300 },   // 300→600 Hz
+    { id: 'out', type: 'out', name: 'output', gain: 0.425 },
+  ], cables: [
+    { from: 'rpm', to: 'r-pit' }, { from: 'r-pit', to: 'osc', port: 'freq' },
+    { from: 'rpm', to: 'r-am' }, { from: 'r-am', to: 'lfo', port: 'freq' },
+    { from: 'rpm', to: 'r-cut' }, { from: 'r-cut', to: 'f', port: 'freq' },
+    { from: 'osc', to: 'am' }, { from: 'lfo', to: 'am', port: 'gain' }, { from: 'am', to: 'f' }, { from: 'f', to: 'g' }, { from: 'g', to: 'out' },
+  ] },
+  'SHIP — ENGINE B': { group: 'SHIPS', project: 'pi-nebula', name: 'Engine B (rounder)', kind: 'engine', dur: 3, nodes: [
+    { id: 'rpm', type: 'value', name: 'RPMs', value: 0, delay: 0 },
+    { id: 'osc', type: 'osc', name: 'servo', wave: 'triangle', freq: 70, freqMod: 1, voices: 2, detune: 6 },
+    { id: 'am', type: 'gain', name: 'pulse', gain: 0.4 },
+    { id: 'lfo', type: 'osc', name: 'pulse', wave: 'sine', freq: 20.5, freqMod: 1, level: 0.6 },
+    { id: 'f', type: 'filter', name: 'tone', ftype: 'lowpass', freq: 240, Q: 0.7 },
+    { id: 'g', type: 'gain', name: 'servo', gain: 0.36 },
+    { id: 'r-pit', type: 'math', name: 'rev→pitch', mul: 80 },     // 70→150 Hz
+    { id: 'r-am', type: 'math', name: 'rev→pulse', mul: 26.5 },    // 20.5→47 a second
+    { id: 'r-cut', type: 'math', name: 'rev→bright', mul: 200 },   // 240→440 Hz
+    { id: 'out', type: 'out', name: 'output', gain: 0.595 },
+  ], cables: [
+    { from: 'rpm', to: 'r-pit' }, { from: 'r-pit', to: 'osc', port: 'freq' },
+    { from: 'rpm', to: 'r-am' }, { from: 'r-am', to: 'lfo', port: 'freq' },
+    { from: 'rpm', to: 'r-cut' }, { from: 'r-cut', to: 'f', port: 'freq' },
+    { from: 'osc', to: 'am' }, { from: 'lfo', to: 'am', port: 'gain' }, { from: 'am', to: 'f' }, { from: 'f', to: 'g' }, { from: 'g', to: 'out' },
+  ] },
+  'SHIP — ENGINE C': { group: 'SHIPS', project: 'pi-nebula', name: 'Engine C (slower throb)', kind: 'engine', dur: 3, nodes: [
+    { id: 'rpm', type: 'value', name: 'RPMs', value: 0, delay: 0 },
+    { id: 'osc', type: 'osc', name: 'servo', wave: 'square', freq: 70, freqMod: 1, voices: 2, detune: 6 },
+    { id: 'am', type: 'gain', name: 'pulse', gain: 0.6 },
+    { id: 'lfo', type: 'osc', name: 'pulse', wave: 'sine', freq: 10, freqMod: 1, level: 0.3 },
+    { id: 'f', type: 'filter', name: 'tone', ftype: 'lowpass', freq: 300, Q: 1 },
+    { id: 'g', type: 'gain', name: 'servo', gain: 0.36 },
+    { id: 'r-pit', type: 'math', name: 'rev→pitch', mul: 80 },     // 70→150 Hz
+    { id: 'r-am', type: 'math', name: 'rev→pulse', mul: 13 },      // 10→23 a second
+    { id: 'r-cut', type: 'math', name: 'rev→bright', mul: 300 },   // 300→600 Hz
+    { id: 'out', type: 'out', name: 'output', gain: 0.39 },
+  ], cables: [
+    { from: 'rpm', to: 'r-pit' }, { from: 'r-pit', to: 'osc', port: 'freq' },
+    { from: 'rpm', to: 'r-am' }, { from: 'r-am', to: 'lfo', port: 'freq' },
+    { from: 'rpm', to: 'r-cut' }, { from: 'r-cut', to: 'f', port: 'freq' },
+    { from: 'osc', to: 'am' }, { from: 'lfo', to: 'am', port: 'gain' }, { from: 'am', to: 'f' }, { from: 'f', to: 'g' }, { from: 'g', to: 'out' },
+  ] },
+
+  // ════════════════════════════════════════════════════════════════════════════════
+  //  PI NEBULA — THE JUMP AND THE CHIME (2026-11-27)
+  //  THE JUMP is the wormhole's own four moments (the game's src/wormplan.js JUMP): the tear opens (0.9 s) and comes
+  //  over the ship (0.65 s): TEAR, 1.55 s, a crack (noise) and a rising rush; the colours all round, for as long as
+  //  the place ahead takes to be made (0.9 s at least): TUNNEL, a rush that drones until the game stops it; the far
+  //  end opens (1.0 s): OPEN, the rush falling away and a soft thump (noise) as the place is there.
+  //  THE CHIME, for a right answer: short and bright, two takes.
+  // ════════════════════════════════════════════════════════════════════════════════
+  'JUMP — TEAR': { group: 'EFFECTS', project: 'pi-nebula', name: 'Jump: the tear', kind: 'perc', dur: 1.6, nodes: [
+    { id: 'c-nz', type: 'noise', name: 'crack', freq: 600, steps: 256, rate: 1, level: 1 },
+    { id: 'c-f', type: 'filter', name: 'crack', ftype: 'bandpass', freq: 1600, Q: 0.8 },
+    { id: 'c-g', type: 'gain', name: 'vca' },
+    { id: 'c-e', type: 'env', name: 'crack', peak: 1, attack: 0.001, decay: 0.09, sustain: 0 },
+    { id: 'w-nz', type: 'noise', name: 'rush', freq: 600, steps: 256, rate: 1, level: 1 },
+    { id: 'w-f', type: 'filter', name: 'rush', ftype: 'bandpass', freq: 260, freqEnd: 2200, glide: 1.55, Q: 1.2 },
+    { id: 'w-g', type: 'gain', name: 'vca' },
+    { id: 'w-e', type: 'env', name: 'rush', peak: 0.9, attack: 1.55, decay: 0.12, sustain: 0 },
+    { id: 'h-osc', type: 'osc', name: 'swell', wave: 'sine', freq: 48, freqMod: 50 },
+    { id: 'h-p', type: 'env', name: 'swell pitch', peak: 1, attack: 1.55, decay: 0.1, sustain: 0, attackCurve: 'lin' },
+    { id: 'h-g', type: 'gain', name: 'vca' },
+    { id: 'h-e', type: 'env', name: 'swell', peak: 0.5, attack: 1.45, decay: 0.2, sustain: 0 },
+    { id: 'out', type: 'out', name: 'output', gain: 0.5 },
+  ], cables: [
+    { from: 'c-nz', to: 'c-f' }, { from: 'c-f', to: 'c-g' }, { from: 'c-e', to: 'c-g', port: 'gain' }, { from: 'c-g', to: 'out' },
+    { from: 'w-nz', to: 'w-f' }, { from: 'w-f', to: 'w-g' }, { from: 'w-e', to: 'w-g', port: 'gain' }, { from: 'w-g', to: 'out' },
+    { from: 'h-p', to: 'h-osc', port: 'freq' }, { from: 'h-osc', to: 'h-g' }, { from: 'h-e', to: 'h-g', port: 'gain' }, { from: 'h-g', to: 'out' },
+  ] },
+  'JUMP — TUNNEL': { group: 'EFFECTS', project: 'pi-nebula', name: 'Jump: the colours', kind: 'engine', dur: 3, nodes: [
+    { id: 'w-nz', type: 'noise', name: 'rush', freq: 600, steps: 256, rate: 1, level: 1 },
+    { id: 'w-f', type: 'filter', name: 'rush', ftype: 'bandpass', freq: 1100, Q: 0.9 },
+    { id: 'w-lfo', type: 'osc', name: 'swirl', wave: 'sine', freq: 0.45, level: 500 },
+    { id: 'w-g', type: 'gain', name: 'rush', gain: 0.32 },
+    { id: 'h-osc', type: 'osc', name: 'hum', wave: 'sine', freq: 98, voices: 2, detune: 9 },
+    { id: 'h-am', type: 'gain', name: 'hum', gain: 0.22 },
+    { id: 'h-lfo', type: 'osc', name: 'hum throb', wave: 'sine', freq: 0.9, level: 0.08 },
+    { id: 'out', type: 'out', name: 'output', gain: 0.3 },
+  ], cables: [
+    { from: 'w-nz', to: 'w-f' }, { from: 'w-lfo', to: 'w-f', port: 'freq' }, { from: 'w-f', to: 'w-g' }, { from: 'w-g', to: 'out' },
+    { from: 'h-osc', to: 'h-am' }, { from: 'h-lfo', to: 'h-am', port: 'gain' }, { from: 'h-am', to: 'out' },
+  ] },
+  'JUMP — OPEN': { group: 'EFFECTS', project: 'pi-nebula', name: 'Jump: the far end opens', kind: 'perc', dur: 1.2, nodes: [
+    { id: 'w-nz', type: 'noise', name: 'rush', freq: 600, steps: 256, rate: 1, level: 1 },
+    { id: 'w-f', type: 'filter', name: 'rush', ftype: 'bandpass', freq: 2000, freqEnd: 240, glide: 1.0, Q: 1.1 },
+    { id: 'w-g', type: 'gain', name: 'vca' },
+    { id: 'w-e', type: 'env', name: 'rush', peak: 0.8, attack: 0.04, decay: 1.0, sustain: 0 },
+    { id: 't-nz', type: 'noise', name: 'thump', freq: 600, steps: 256, rate: 1, level: 1 },
+    { id: 't-f', type: 'filter', name: 'thump', ftype: 'lowpass', freq: 180, Q: 0.8 },
+    { id: 't-g', type: 'gain', name: 'vca' },
+    { id: 't-e', type: 'env', name: 'thump', peak: 1.6, attack: 0.003, decay: 0.28, sustain: 0, delay: 0.85 },
+    { id: 'out', type: 'out', name: 'output', gain: 0.5 },
+  ], cables: [
+    { from: 'w-nz', to: 'w-f' }, { from: 'w-f', to: 'w-g' }, { from: 'w-e', to: 'w-g', port: 'gain' }, { from: 'w-g', to: 'out' },
+    { from: 't-nz', to: 't-f' }, { from: 't-f', to: 't-g' }, { from: 't-e', to: 't-g', port: 'gain' }, { from: 't-g', to: 'out' },
+  ] },
+  // CHIME A: two notes going up, C6 then G6 a tenth of a second later (triangle waves: bright, not glassy)
+  'CHIME — RIGHT A': { group: 'EFFECTS', project: 'pi-nebula', name: 'Chime A (two notes up)', kind: 'perc', dur: 0.7, nodes: [
+    { id: 'a-osc', type: 'osc', name: 'first', wave: 'triangle', freq: 1046.5 },
+    { id: 'a-g', type: 'gain', name: 'vca' },
+    { id: 'a-e', type: 'env', name: 'first', peak: 1, attack: 0.004, decay: 0.32, sustain: 0 },
+    { id: 'b-osc', type: 'osc', name: 'second', wave: 'triangle', freq: 1568 },
+    { id: 'b-g', type: 'gain', name: 'vca' },
+    { id: 'b-e', type: 'env', name: 'second', peak: 1, attack: 0.004, decay: 0.45, sustain: 0, delay: 0.1 },
+    { id: 'out', type: 'out', name: 'output', gain: 0.3 },
+  ], cables: [
+    { from: 'a-osc', to: 'a-g' }, { from: 'a-e', to: 'a-g', port: 'gain' }, { from: 'a-g', to: 'out' },
+    { from: 'b-osc', to: 'b-g' }, { from: 'b-e', to: 'b-g', port: 'gain' }, { from: 'b-g', to: 'out' },
+  ] },
+  // CHIME B: one bright ding, E6 with two quicker overtones over it (a small bell)
+  'CHIME — RIGHT B': { group: 'EFFECTS', project: 'pi-nebula', name: 'Chime B (one ding)', kind: 'perc', dur: 0.8, nodes: [
+    { id: 'a-osc', type: 'osc', name: 'note', wave: 'sine', freq: 1318.5 },
+    { id: 'a-g', type: 'gain', name: 'vca' },
+    { id: 'a-e', type: 'env', name: 'note', peak: 1, attack: 0.003, decay: 0.6, sustain: 0 },
+    { id: 'b-osc', type: 'osc', name: 'octave', wave: 'sine', freq: 2637 },
+    { id: 'b-g', type: 'gain', name: 'vca' },
+    { id: 'b-e', type: 'env', name: 'octave', peak: 0.35, attack: 0.002, decay: 0.3, sustain: 0 },
+    { id: 'c-osc', type: 'osc', name: 'shine', wave: 'sine', freq: 3955 },
+    { id: 'c-g', type: 'gain', name: 'vca' },
+    { id: 'c-e', type: 'env', name: 'shine', peak: 0.18, attack: 0.002, decay: 0.12, sustain: 0 },
+    { id: 'out', type: 'out', name: 'output', gain: 0.35 },
+  ], cables: [
+    { from: 'a-osc', to: 'a-g' }, { from: 'a-e', to: 'a-g', port: 'gain' }, { from: 'a-g', to: 'out' },
+    { from: 'b-osc', to: 'b-g' }, { from: 'b-e', to: 'b-g', port: 'gain' }, { from: 'b-g', to: 'out' },
+    { from: 'c-osc', to: 'c-g' }, { from: 'c-e', to: 'c-g', port: 'gain' }, { from: 'c-g', to: 'out' },
   ] },
   // ── end of PI NEBULA ──
 };
